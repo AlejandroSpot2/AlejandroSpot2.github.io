@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dot Plot - F1 Drivers Career Points</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+</head>
+<body>
+    <h2>Dot Plot: Top 20 F1 Drivers by Career Points (Log Scale)</h2>
+    <script>
+    let table;
+    let drivers = [];
+
+    function preload() {
+        table = loadTable('F1DriversDataset.csv', 'csv', 'header');
+    }
+
+    function setup() {
+        createCanvas(950, 700);
+
+        for (let i = 0; i < table.getRowCount(); i++) {
+            let name = table.getString(i, 'Driver');
+            let pts = table.getNum(i, 'Points');
+            if (!isNaN(pts) && pts > 0) {
+                drivers.push({ name: name, points: pts });
+            }
+        }
+        drivers.sort((a, b) => b.points - a.points);
+        drivers = drivers.slice(0, 20);
+
+        noLoop();
+    }
+
+    function draw() {
+        background(255);
+
+        let mL = 160, mR = 30, mT = 40, mB = 50;
+        let pW = width - mL - mR;
+        let pH = height - mT - mB;
+
+        // Log scale range
+        let minLog = 0;
+        let maxLog = Math.ceil(Math.log10(drivers[0].points));
+
+        // Title
+        fill(0);
+        noStroke();
+        textSize(14);
+        textAlign(CENTER);
+        text("Top 20 F1 Drivers by Career Points (Log Scale)", width / 2, 25);
+
+        // Axes
+        stroke(0);
+        strokeWeight(1);
+        line(mL, mT, mL, height - mB);
+        line(mL, height - mB, width - mR, height - mB);
+
+        // X-axis ticks (powers of 10)
+        noStroke();
+        fill(0);
+        textSize(10);
+        textAlign(CENTER, TOP);
+        for (let p = 0; p <= maxLog; p++) {
+            let val = Math.pow(10, p);
+            let x = map(p, minLog, maxLog, mL, width - mR);
+            text(val.toLocaleString(), x, height - mB + 8);
+            stroke(220);
+            strokeWeight(0.5);
+            line(x, mT, x, height - mB);
+            noStroke();
+        }
+
+        // X-axis label
+        fill(0);
+        textSize(12);
+        textAlign(CENTER);
+        text("Points (log scale)", mL + pW / 2, height - 10);
+
+        // Dots and Y labels
+        let step = pH / drivers.length;
+        let hoveredIdx = -1;
+
+        for (let i = 0; i < drivers.length; i++) {
+            let y = mT + i * step + step / 2;
+            let logVal = Math.log10(drivers[i].points);
+            let x = map(logVal, minLog, maxLog, mL, width - mR);
+
+            let d = dist(mouseX, mouseY, x, y);
+            if (d < 8) {
+                hoveredIdx = i;
+                fill(255, 80, 80);
+            } else {
+                fill(70, 130, 230);
+            }
+            noStroke();
+            ellipse(x, y, 12, 12);
+
+            // Y-axis label (driver name)
+            fill(0);
+            textSize(10);
+            textAlign(RIGHT, CENTER);
+            text(drivers[i].name, mL - 8, y);
+        }
+
+        // Tooltip
+        if (hoveredIdx >= 0) {
+            let dr = drivers[hoveredIdx];
+            let label = dr.name + ": " + dr.points + " pts";
+            textSize(11);
+            let tw = textWidth(label) + 14;
+            let tx = mouseX + 12;
+            let ty = mouseY - 28;
+            if (tx + tw > width) tx = mouseX - tw - 5;
+            fill(0, 0, 0, 200);
+            noStroke();
+            rect(tx, ty, tw, 24, 4);
+            fill(255);
+            textAlign(LEFT, CENTER);
+            text(label, tx + 7, ty + 12);
+        }
+    }
+
+    function mouseMoved() {
+        redraw();
+    }
+    </script>
+</body>
+</html>

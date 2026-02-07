@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bar Chart - F1 Drivers Race Wins</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+</head>
+<body>
+    <h2>Bar Chart: Top 15 F1 Drivers by Race Wins</h2>
+    <script>
+    let table;
+    let drivers = [];
+
+    function preload() {
+        table = loadTable('F1DriversDataset.csv', 'csv', 'header');
+    }
+
+    function setup() {
+        createCanvas(900, 600);
+
+        for (let i = 0; i < table.getRowCount(); i++) {
+            let name = table.getString(i, 'Driver');
+            let wins = table.getNum(i, 'Race_Wins');
+            if (!isNaN(wins) && wins > 0) {
+                drivers.push({ name: name, wins: wins });
+            }
+        }
+        drivers.sort((a, b) => b.wins - a.wins);
+        drivers = drivers.slice(0, 15);
+
+        noLoop();
+    }
+
+    function draw() {
+        background(255);
+
+        let mL = 150, mR = 30, mT = 40, mB = 50;
+        let pW = width - mL - mR;
+        let pH = height - mT - mB;
+
+        let maxVal = Math.ceil(drivers[0].wins / 10) * 10;
+        let step = pH / drivers.length;
+        let barH = step * 0.7;
+
+        // Title
+        fill(0);
+        noStroke();
+        textSize(14);
+        textAlign(CENTER);
+        text("Top 15 F1 Drivers by Race Wins", width / 2, 25);
+
+        // Axes
+        stroke(0);
+        strokeWeight(1);
+        line(mL, mT, mL, height - mB);
+        line(mL, height - mB, width - mR, height - mB);
+
+        // X-axis ticks and grid
+        noStroke();
+        fill(0);
+        textSize(10);
+        textAlign(CENTER, TOP);
+        let numTicks = 5;
+        for (let i = 0; i <= numTicks; i++) {
+            let val = (maxVal / numTicks) * i;
+            let x = map(val, 0, maxVal, mL, width - mR);
+            text(Math.round(val), x, height - mB + 8);
+            stroke(220);
+            strokeWeight(0.5);
+            line(x, mT, x, height - mB);
+            noStroke();
+        }
+
+        // X-axis label
+        fill(0);
+        textSize(12);
+        textAlign(CENTER);
+        text("Race Wins", mL + pW / 2, height - 10);
+
+        // Bars and Y labels
+        let hoveredIdx = -1;
+        for (let i = 0; i < drivers.length; i++) {
+            let y = mT + i * step + (step - barH) / 2;
+            let w = map(drivers[i].wins, 0, maxVal, 0, pW);
+
+            if (mouseX >= mL && mouseX <= mL + w && mouseY >= y && mouseY <= y + barH) {
+                hoveredIdx = i;
+                fill(255, 120, 50);
+            } else {
+                fill(70, 130, 230);
+            }
+            noStroke();
+            rect(mL, y, w, barH);
+
+            // Y-axis label (driver name)
+            fill(0);
+            textSize(10);
+            textAlign(RIGHT, CENTER);
+            text(drivers[i].name, mL - 8, y + barH / 2);
+        }
+
+        // Tooltip
+        if (hoveredIdx >= 0) {
+            let d = drivers[hoveredIdx];
+            let label = d.name + ": " + d.wins + " wins";
+            textSize(11);
+            let tw = textWidth(label) + 14;
+            let tx = mouseX + 12;
+            let ty = mouseY - 28;
+            if (tx + tw > width) tx = mouseX - tw - 5;
+            fill(0, 0, 0, 200);
+            noStroke();
+            rect(tx, ty, tw, 24, 4);
+            fill(255);
+            textAlign(LEFT, CENTER);
+            text(label, tx + 7, ty + 12);
+        }
+    }
+
+    function mouseMoved() {
+        redraw();
+    }
+    </script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Heatmap - F1 Drivers by Nationality and Decade</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+</head>
+<body>
+    <h2>Heatmap: Number of F1 Drivers by Nationality and Decade</h2>
+    <script>
+    let table;
+    let heatData = {};
+    let nationalities = [];
+    let decades = [];
+    let maxCount = 0;
+
+    function preload() {
+        table = loadTable('F1DriversDataset.csv', 'csv', 'header');
+    }
+
+    function setup() {
+        createCanvas(900, 550);
+
+        // Count drivers per nationality per decade
+        let natCounts = {};
+        let decadeSet = new Set();
+
+        for (let i = 0; i < table.getRowCount(); i++) {
+            let nat = table.getString(i, 'Nationality').trim();
+            let dec = table.getString(i, 'Decade').trim();
+
+            decadeSet.add(dec);
+
+            if (!natCounts[nat]) natCounts[nat] = { _total: 0 };
+            if (!natCounts[nat][dec]) natCounts[nat][dec] = 0;
+            natCounts[nat][dec]++;
+            natCounts[nat]._total++;
+        }
+
+        // Sort decades numerically
+        decades = Array.from(decadeSet).sort((a, b) => Number(a) - Number(b));
+
+        // Top 10 nationalities by total driver count
+        let natList = Object.keys(natCounts).map(n => ({ name: n, total: natCounts[n]._total }));
+        natList.sort((a, b) => b.total - a.total);
+        nationalities = natList.slice(0, 10).map(n => n.name);
+
+        // Build heat data and find max
+        for (let nat of nationalities) {
+            heatData[nat] = {};
+            for (let dec of decades) {
+                let val = natCounts[nat][dec] || 0;
+                heatData[nat][dec] = val;
+                if (val > maxCount) maxCount = val;
+            }
+        }
+
+        noLoop();
+    }
+
+    function draw() {
+        background(255);
+
+        let mL = 140, mR = 80, mT = 50, mB = 40;
+        let pW = width - mL - mR;
+        let pH = height - mT - mB;
+
+        let cellW = pW / decades.length;
+        let cellH = pH / nationalities.length;
+
+        // Title
+        fill(0);
+        noStroke();
+        textSize(14);
+        textAlign(CENTER);
+        text("Number of F1 Drivers by Nationality and Decade", width / 2, 25);
+
+        // Draw cells
+        let hoveredR = -1, hoveredC = -1;
+
+        for (let r = 0; r < nationalities.length; r++) {
+            for (let c = 0; c < decades.length; c++) {
+                let x = mL + c * cellW;
+                let y = mT + r * cellH;
+                let val = heatData[nationalities[r]][decades[c]];
+
+                // Color: white (0) to steel blue (max)
+                let t = val / maxCount;
+                let red = lerp(255, 30, t);
+                let green = lerp(255, 80, t);
+                let blue = lerp(255, 180, t);
+
+                if (mouseX >= x && mouseX <= x + cellW && mouseY >= y && mouseY <= y + cellH) {
+                    hoveredR = r;
+                    hoveredC = c;
+                    stroke(255, 100, 0);
+                    strokeWeight(2);
+                } else {
+                    stroke(255);
+                    strokeWeight(1);
+                }
+                fill(red, green, blue);
+                rect(x, y, cellW, cellH);
+
+                // Cell value text
+                fill(t > 0.55 ? 255 : 0);
+                noStroke();
+                textSize(10);
+                textAlign(CENTER, CENTER);
+                text(val, x + cellW / 2, y + cellH / 2);
+            }
+        }
+
+        // Row labels (nationalities)
+        fill(0);
+        noStroke();
+        textSize(11);
+        textAlign(RIGHT, CENTER);
+        for (let r = 0; r < nationalities.length; r++) {
+            text(nationalities[r], mL - 8, mT + r * cellH + cellH / 2);
+        }
+
+        // Column labels (decades)
+        textAlign(CENTER, TOP);
+        textSize(11);
+        for (let c = 0; c < decades.length; c++) {
+            text(decades[c] + "s", mL + c * cellW + cellW / 2, mT + pH + 8);
+        }
+
+        // Legend
+        let legendX = width - mR + 15;
+        let legendY = mT;
+        let legendH = pH * 0.6;
+        let legendW = 15;
+        for (let i = 0; i < legendH; i++) {
+            let val = map(i, 0, legendH, maxCount, 0);
+            let t = val / maxCount;
+            let r = lerp(255, 30, t);
+            let g = lerp(255, 80, t);
+            let b = lerp(255, 180, t);
+            stroke(r, g, b);
+            line(legendX, legendY + i, legendX + legendW, legendY + i);
+        }
+        noStroke();
+        fill(0);
+        textSize(9);
+        textAlign(LEFT, TOP);
+        text(maxCount, legendX + legendW + 4, legendY - 2);
+        textAlign(LEFT, BOTTOM);
+        text("0", legendX + legendW + 4, legendY + legendH + 2);
+
+        // Tooltip
+        if (hoveredR >= 0 && hoveredC >= 0) {
+            let val = heatData[nationalities[hoveredR]][decades[hoveredC]];
+            let label = nationalities[hoveredR] + ", " + decades[hoveredC] + "s: " + val + " drivers";
+            textSize(11);
+            let tw = textWidth(label) + 14;
+            let tx = mouseX + 12;
+            let ty = mouseY - 28;
+            if (tx + tw > width) tx = mouseX - tw - 5;
+            fill(0, 0, 0, 200);
+            noStroke();
+            rect(tx, ty, tw, 24, 4);
+            fill(255);
+            textAlign(LEFT, CENTER);
+            text(label, tx + 7, ty + 12);
+        }
+    }
+
+    function mouseMoved() {
+        redraw();
+    }
+    </script>
+</body>
+</html>
