@@ -13,10 +13,12 @@
     let decades = [];
     let maxCount = 0;
 
+    // Loads the data from the csv
     function preload() {
         table = loadTable('F1DriversDataset.csv', 'csv', 'header');
     }
 
+    // Aggregate data by nationality and decade (top 10 nationalities)
     function setup() {
         createCanvas(900, 550);
 
@@ -57,6 +59,7 @@
         noLoop();
     }
 
+    // Draw the heatmap grid, color cells by count, add legend and tooltip
     function draw() {
         background(255);
 
@@ -166,6 +169,7 @@
         }
     }
 
+    // Redraw on hover so tooltip updates
     function mouseMoved() {
         redraw();
     }

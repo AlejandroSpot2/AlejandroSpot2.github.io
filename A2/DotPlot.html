@@ -10,10 +10,12 @@
     let table;
     let drivers = [];
 
+    // Loads the data from the csv
     function preload() {
         table = loadTable('F1DriversDataset.csv', 'csv', 'header');
     }
 
+    // Draw the canvas and slice the data to the top 20 drivers
     function setup() {
         createCanvas(950, 700);
 
@@ -30,6 +32,7 @@
         noLoop();
     }
 
+    // Draw the dot plot with log scale on x-axis, dots, labels, and tooltip
     function draw() {
         background(255);
 
@@ -119,6 +122,7 @@
         }
     }
 
+    // Redraw on hover so tooltip updates
     function mouseMoved() {
         redraw();
     }

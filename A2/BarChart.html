@@ -10,10 +10,12 @@
     let table;
     let drivers = [];
 
+    // Loads the data from the csv
     function preload() {
         table = loadTable('F1DriversDataset.csv', 'csv', 'header');
     }
 
+    // Draw the canvas and slice the data to a few drivers
     function setup() {
         createCanvas(900, 600);
 
@@ -30,6 +32,7 @@
         noLoop();
     }
 
+    // Draw the bar chart with axes, bars, labels, and tooltip
     function draw() {
         background(255);
 
@@ -116,6 +119,7 @@
         }
     }
 
+    // Redraw on hover so tooltip updates
     function mouseMoved() {
         redraw();
     }
