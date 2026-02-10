@@ -6,6 +6,7 @@
 </head>
 <body>
     <h2>Heatmap: Number of F1 Drivers by Nationality and Decade</h2>
+    <div id="p5-canvas"></div>
     <script>
     let table;
     let heatData = {};
@@ -20,7 +21,8 @@
 
     // Aggregate data by nationality and decade (top 10 nationalities)
     function setup() {
-        createCanvas(900, 550);
+        let cnv = createCanvas(900, 550);
+        cnv.parent('p5-canvas');
 
         // Count drivers per nationality per decade
         let natCounts = {};

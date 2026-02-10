@@ -6,6 +6,7 @@
 </head>
 <body>
     <h2>Bar Chart: Top 15 F1 Drivers by Race Wins</h2>
+    <div id="p5-canvas"></div>
     <script>
     let table;
     let drivers = [];
@@ -17,7 +18,8 @@
 
     // Draw the canvas and slice the data to a few drivers
     function setup() {
-        createCanvas(900, 600);
+        let cnv = createCanvas(900, 600);
+        cnv.parent('p5-canvas');
 
         for (let i = 0; i < table.getRowCount(); i++) {
             let name = table.getString(i, 'Driver');
