@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Box Plot - Points by Driver</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        .plot-frame {
+            width: 960px;
+            max-width: 100%;
+        }
+        .plot-frame img {
+            width: 960px;
+            height: 620px;
+            max-width: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <h2>Box Plot: Distribution of points by driver</h2>
+    <div id="p5-canvas" class="plot-frame"></div>
+    <script>
+    let table;
+    let driverStats = [];
+    let xLabels = [];
+    let globalMin = 0;
+    let globalMax = 0;
+    let hoveredInfo = null;
+
+    const chartWidth = 960;
+    const chartHeight = 620;
+    const maxDriversToShow = 12;
+
+    function preload() {
+        table = loadTable('Formula1_2025Season_RaceResults.csv', 'csv', 'header');
+    }
+
+    function setup() {
+        createCanvas(chartWidth, chartHeight).parent('p5-canvas');
+        noLoop();
+
+        let grouped = {};
+        for (let i = 0; i < table.getRowCount(); i++) {
+            let driver = table.getString(i, 'Driver');
+            let points = parseFloat(table.getString(i, 'Points'));
+            if (!driver || !Number.isFinite(points)) continue;
+            if (!grouped[driver]) grouped[driver] = [];
+            grouped[driver].push(points);
+        }
+
+        let candidates = [];
+        for (let driver in grouped) {
+            if (grouped[driver].length >= 3) {
+                candidates.push({ driver: driver, values: grouped[driver] });
+            }
+        }
+
+        candidates.sort((a, b) => b.values.length - a.values.length);
+        candidates = candidates.slice(0, maxDriversToShow);
+
+        for (let i = 0; i < candidates.length; i++) {
+            let s = summarize(candidates[i].driver, candidates[i].values);
+            if (s) {
+                driverStats.push(s);
+            }
+        }
+
+        if (driverStats.length > 0) {
+            globalMin = Infinity;
+            globalMax = -Infinity;
+            for (let d of driverStats) {
+                globalMin = Math.min(globalMin, d.whiskerLow);
+                globalMax = Math.max(globalMax, d.whiskerHigh);
+                for (let o of d.outliers) {
+                    globalMin = Math.min(globalMin, o);
+                    globalMax = Math.max(globalMax, o);
+                }
+            }
+            // Add a little breathing room
+            let pad = (globalMax - globalMin) * 0.05;
+            if (pad === 0) pad = 1;
+            globalMin = max(0, globalMin - pad);
+            globalMax = globalMax + pad;
+        }
+    }
+
+    function summarize(driver, values) {
+        values.sort((a, b) => a - b);
+        if (values.length === 0) return null;
+
+        let q1 = percentile(values, 0.25);
+        let q2 = percentile(values, 0.5);
+        let q3 = percentile(values, 0.75);
+        let iqr = q3 - q1;
+        let lowFence = q1 - 1.5 * iqr;
+        let highFence = q3 + 1.5 * iqr;
+
+        let whiskerLow = values[0];
+        for (let v of values) {
+            if (v >= lowFence) {
+                whiskerLow = v;
+                break;
+            }
+        }
+
+        let whiskerHigh = values[values.length - 1];
+        for (let i = values.length - 1; i >= 0; i--) {
+            if (values[i] <= highFence) {
+                whiskerHigh = values[i];
+                break;
+            }
+        }
+
+        let outliers = [];
+        for (let v of values) {
+            if (v < lowFence || v > highFence) outliers.push(v);
+        }
+
+        return {
+            driver: driver,
+            values: values,
+            min: values[0],
+            q1: q1,
+            median: q2,
+            q3: q3,
+            max: values[values.length - 1],
+            whiskerLow: whiskerLow,
+            whiskerHigh: whiskerHigh,
+            outliers: outliers
+        };
+    }
+
+    function percentile(arr, p) {
+        let n = arr.length;
+        if (n === 0) return 0;
+        let pos = (n - 1) * p;
+        let lo = floor(pos);
+        let hi = ceil(pos);
+        if (lo === hi) return arr[lo];
+        return arr[lo] + (arr[hi] - arr[lo]) * (pos - lo);
+    }
+
+    function yFromVal(v, minV, maxV, top, bottom) {
+        return map(v, minV, maxV, bottom, top);
+    }
+
+    function draw() {
+        background(255);
+
+        let mL = 120;
+        let mR = 30;
+        let mT = 50;
+        let mB = 92;
+        let plotW = width - mL - mR;
+        let plotH = height - mT - mB;
+
+        // Faint grid
+        stroke(230);
+        strokeWeight(1);
+        for (let i = 0; i <= 8; i++) {
+            let y = mT + (plotH / 8) * i;
+            line(mL, y, width - mR, y);
+        }
+
+        // Axes
+        stroke(0);
+        line(mL, mT, mL, height - mB);
+        line(mL, height - mB, width - mR, height - mB);
+
+        // Title
+        noStroke();
+        fill(0);
+        textAlign(CENTER, TOP);
+        textSize(16);
+        text('Points Distribution by Driver (Top 12 Drivers by races)', width / 2, 15);
+
+        if (driverStats.length === 0) {
+            textAlign(CENTER, CENTER);
+            textSize(14);
+            text('No driver data found', width / 2, height / 2);
+            return;
+        }
+
+        // Labels
+        textSize(12);
+        fill(0);
+        textAlign(CENTER, TOP);
+        text('Driver', width / 2, height - 30);
+        push();
+        translate(24, height / 2);
+        rotate(-HALF_PI);
+        text('Points', 0, 0);
+        pop();
+
+        let step = plotW / driverStats.length;
+        let boxW = Math.max(14, step * 0.35);
+
+        // Y ticks
+        let yTicks = 6;
+        textAlign(RIGHT, CENTER);
+        textSize(11);
+        for (let i = 0; i <= yTicks; i++) {
+            let val = Math.round(lerp(globalMin, globalMax, i / yTicks));
+            let y = yFromVal(val, globalMin, globalMax, mT, height - mB);
+            text(val, mL - 8, y);
+        }
+
+        // Draw each box
+        hoveredInfo = null;
+        for (let i = 0; i < driverStats.length; i++) {
+            let s = driverStats[i];
+            let x = mL + i * step + step / 2;
+            let left = x - boxW / 2;
+            let right = x + boxW / 2;
+
+            let yMin = yFromVal(s.whiskerLow, globalMin, globalMax, mT, height - mB);
+            let yQ1 = yFromVal(s.q1, globalMin, globalMax, mT, height - mB);
+            let yQ2 = yFromVal(s.median, globalMin, globalMax, mT, height - mB);
+            let yQ3 = yFromVal(s.q3, globalMin, globalMax, mT, height - mB);
+            let yMax = yFromVal(s.whiskerHigh, globalMin, globalMax, mT, height - mB);
+            let yTop = min(yQ1, yQ3);
+            let yBottom = max(yQ1, yQ3);
+
+            if (mouseX >= left && mouseX <= right && mouseY >= yTop - 4 && mouseY <= yBottom + 4 && !hoveredInfo) {
+                hoveredInfo = {
+                    type: 'box',
+                    driver: s.driver,
+                    min: s.min.toFixed(1),
+                    q1: s.q1.toFixed(1),
+                    median: s.median.toFixed(1),
+                    q3: s.q3.toFixed(1),
+                    max: s.max.toFixed(1),
+                    outliers: s.outliers.length,
+                    x: x,
+                    y: yTop - 16
+                };
+            }
+
+            stroke(80);
+            strokeWeight(2);
+            line(x, yMin, x, yQ1);
+            line(x, yQ3, x, yMax);
+            line(left, yMin, right, yMin);
+            line(left, yMax, right, yMax);
+            fill(100, 160, 230);
+            noStroke();
+            rect(left, yQ3, boxW, max(1, yQ1 - yQ3));
+            stroke(60);
+            line(left, yQ2, right, yQ2);
+
+            // Outliers
+            fill(220, 60, 60, 210);
+            noStroke();
+            for (let j = 0; j < s.outliers.length; j++) {
+                let oy = yFromVal(s.outliers[j], globalMin, globalMax, mT, height - mB);
+                ellipse(x + (j % 3 - 1) * 4, oy, 8, 8);
+
+                if (dist(mouseX, mouseY, x + (j % 3 - 1) * 4, oy) < 6 && !hoveredInfo) {
+                    hoveredInfo = {
+                        type: 'outlier',
+                        driver: s.driver,
+                        value: s.outliers[j].toFixed(1),
+                        x: x,
+                        y: oy - 16
+                    };
+                }
+            }
+        }
+
+        // Driver labels
+        textAlign(CENTER, TOP);
+        textSize(10);
+        for (let i = 0; i < driverStats.length; i++) {
+            let x = mL + i * step + step / 2;
+            push();
+            translate(x, height - mB + 8);
+            rotate(-PI / 4);
+            text(driverStats[i].driver, 0, 20);
+            pop();
+        }
+
+        // Tooltip
+        if (hoveredInfo) {
+            let lines = [];
+            if (hoveredInfo.type === 'outlier') {
+                lines.push('Driver: ' + hoveredInfo.driver);
+                lines.push('Outlier: ' + hoveredInfo.value);
+            } else {
+                lines.push('Driver: ' + hoveredInfo.driver);
+                lines.push('Min: ' + hoveredInfo.min);
+                lines.push('Q1: ' + hoveredInfo.q1);
+                lines.push('Median: ' + hoveredInfo.median);
+                lines.push('Q3: ' + hoveredInfo.q3);
+                lines.push('Max: ' + hoveredInfo.max);
+                lines.push('Outliers: ' + hoveredInfo.outliers);
+            }
+
+            let maxLine = 0;
+            textSize(11);
+            for (let i = 0; i < lines.length; i++) {
+                maxLine = max(maxLine, textWidth(lines[i]));
+            }
+
+            let tooltipW = maxLine + 16;
+            let tooltipH = lines.length * 14 + 8;
+            let tx = hoveredInfo.x + 14;
+            let ty = hoveredInfo.y;
+
+            if (tx + tooltipW > width) tx = hoveredInfo.x - tooltipW - 14;
+            if (ty + tooltipH > height - mT) ty = height - mT - tooltipH - 4;
+            if (ty < 4) ty = 4;
+
+            fill(0, 0, 0, 190);
+            noStroke();
+            rect(tx, ty, tooltipW, tooltipH, 4);
+            fill(255);
+            textAlign(LEFT, TOP);
+            for (let i = 0; i < lines.length; i++) {
+                text(lines[i], tx + 8, ty + 6 + i * 14);
+            }
+        }
+    }
+
+    function mouseMoved() {
+        redraw();
+    }
+    </script>
+
+    <h2>Seaborn</h2>
+    <img src="seaborn_boxplot_points_by_driver.png" alt="Seaborn box plot with driver outliers" class="plot-frame">
+</body>
+</html>
+
+

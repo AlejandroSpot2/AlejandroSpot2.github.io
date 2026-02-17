@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Strip Plot - Laps by Driver</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        .plot-frame {
+            width: 960px;
+            max-width: 100%;
+        }
+        .plot-frame img {
+            width: 960px;
+            height: 620px;
+            max-width: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <h2>Strip Plot: Lap distribution by driver</h2>
+    <div id="p5-canvas" class="plot-frame"></div>
+    <script>
+    let table;
+    let points = [];
+    let maxDriversToShow = 12;
+    let driverListByPosition = [];
+    let hovered = null;
+    let yMin = 0;
+    let yMax = 0;
+
+    const chartWidth = 960;
+    const chartHeight = 620;
+
+    function preload() {
+        table = loadTable('Formula1_2025Season_RaceResults.csv', 'csv', 'header');
+    }
+
+    function setup() {
+        createCanvas(chartWidth, chartHeight).parent('p5-canvas');
+        noLoop();
+
+        let grouped = {};
+        let counts = {};
+        for (let i = 0; i < table.getRowCount(); i++) {
+            let driver = table.getString(i, 'Driver');
+            let lapStr = table.getString(i, 'Laps');
+            let lap = parseFloat(lapStr);
+            if (!driver || !Number.isFinite(lap)) continue;
+
+            if (!grouped[driver]) grouped[driver] = [];
+            grouped[driver].push({ lap: lap, lapText: lapStr, sourceTrack: table.getString(i, 'Track'), point: parseFloat(table.getString(i, 'Points')) });
+            counts[driver] = (counts[driver] || 0) + 1;
+        }
+
+        let topDrivers = [];
+        for (let d in counts) {
+            topDrivers.push({ driver: d, count: counts[d] });
+        }
+        topDrivers.sort((a, b) => b.count - a.count);
+        topDrivers = topDrivers.slice(0, maxDriversToShow).map(d => d.driver);
+        driverListByPosition = topDrivers;
+
+        let base = {};
+        let candidateY = [];
+        for (let i = 0; i < topDrivers.length; i++) {
+            base[topDrivers[i]] = i;
+        }
+
+        for (let d in grouped) {
+            if (base[d] === undefined) continue;
+            let arr = grouped[d];
+            for (let i = 0; i < arr.length; i++) {
+                candidateY.push(arr[i].lap);
+            }
+        }
+
+        if (candidateY.length > 0) {
+            yMin = Math.min(...candidateY);
+            yMax = Math.max(...candidateY);
+            if (yMin === yMax) {
+                yMax = yMin + 1;
+            }
+        }
+
+        let mL = 120;
+        let mR = 30;
+        let mT = 50;
+        let mB = 95;
+        let plotW = width - mL - mR;
+        let visibleDrivers = max(1, topDrivers.length);
+        let step = plotW / visibleDrivers;
+        let jitterRange = Math.max(8, step * 0.12);
+
+        for (let d in grouped) {
+            if (base[d] === undefined) continue;
+            let visibleIndex = base[d];
+            let xBase = mL + visibleIndex * step + step / 2;
+            for (let i = 0; i < grouped[d].length; i++) {
+                let val = grouped[d][i];
+                let y = map(val.lap, yMin, yMax, height - mB, mT);
+                points.push({
+                    driver: d,
+                    lap: val.lap,
+                    lapText: val.lapText,
+                    track: val.sourceTrack,
+                    x: xBase + random(-jitterRange, jitterRange),
+                    y: y,
+                    groupIndex: base[d]
+                });
+            }
+        }
+    }
+
+    function draw() {
+        background(255);
+
+        let mL = 120;
+        let mR = 30;
+        let mT = 50;
+        let mB = 95;
+        let plotW = width - mL - mR;
+        let plotH = height - mT - mB;
+
+        // faint grid
+        stroke(230);
+        strokeWeight(1);
+        for (let i = 0; i <= 10; i++) {
+            let y = mT + (plotH / 10) * i;
+            line(mL, y, width - mR, y);
+        }
+
+        // Axes
+        stroke(0);
+        line(mL, mT, mL, height - mB);
+        line(mL, height - mB, width - mR, height - mB);
+
+        // Title and labels
+        noStroke();
+        fill(0);
+        textAlign(CENTER, TOP);
+        textSize(16);
+        text('Jittered Lap Distribution by Driver', width / 2, 15);
+        textAlign(CENTER, TOP);
+        textSize(12);
+                text('Driver', width / 2, height - 32);
+        push();
+        translate(20, height / 2);
+        rotate(-HALF_PI);
+        textAlign(CENTER, TOP);
+        text('Laps', 0, 0);
+        pop();
+
+        // Y-axis ticks
+        let yTicks = 6;
+        textAlign(RIGHT, CENTER);
+        textSize(11);
+        for (let i = 0; i <= yTicks; i++) {
+            let y = mT + (plotH / yTicks) * i;
+            let val = Math.round(lerp(yMin, yMax, i / yTicks));
+            text(val, mL - 8, y);
+        }
+
+        // X labels from base order
+        let step = plotW / max(1, driverListByPosition.length);
+        textAlign(CENTER, TOP);
+        textSize(10);
+        for (let i = 0; i < maxDriversToShow; i++) {
+            let x = mL + i * step + step / 2;
+            if (i < driverListByPosition.length) {
+                push();
+                translate(x, height - mB + 6);
+                rotate(-PI / 4);
+                text(driverListByPosition[i], 0, 28);
+                pop();
+            }
+        }
+
+        // Draw points
+        hovered = null;
+        for (let i = 0; i < points.length; i++) {
+            let p = points[i];
+            let hit = dist(mouseX, mouseY, p.x, p.y) < 6;
+            let colorVal = hit ? color(255, 150, 60) : color(70, 130, 230);
+            fill(colorVal);
+            noStroke();
+            ellipse(p.x, p.y, 9, 9);
+            if (hit) hovered = p;
+        }
+
+        // Tooltip
+        if (hovered) {
+            let msg = hovered.driver + ' | ' + hovered.track + ' | ' + hovered.lap + ' laps';
+            let tooltipW = textWidth(msg) + 14;
+            let tx = mouseX + 10;
+            let ty = mouseY - 28;
+            if (tx + tooltipW > width) {
+                tx = mouseX - tooltipW - 10;
+            }
+            fill(0, 0, 0, 190);
+            noStroke();
+            rect(tx, ty, tooltipW, 22, 4);
+            fill(255);
+            textAlign(LEFT, CENTER);
+            textSize(11);
+            text(msg, tx + 6, ty + 11);
+        }
+    }
+
+    function mouseMoved() {
+        redraw();
+    }
+
+    </script>
+
+    <h2>Seaborn</h2>
+    <img src="seaborn_strip_laps_by_driver.png" alt="Seaborn strip plot with jitter" class="plot-frame">
+</body>
+</html>
+

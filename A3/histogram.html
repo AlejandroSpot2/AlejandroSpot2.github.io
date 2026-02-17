@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Histogram - F1 Drivers (by Race Count)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        .plot-frame {
+            width: 960px;
+            max-width: 100%;
+        }
+        .plot-frame img {
+            width: 960px;
+            height: 620px;
+            max-width: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <h2>Histogram: Number of races per driver</h2>
+    <div id="p5-canvas" class="plot-frame"></div>
+    <script>
+    let table;
+    let bins = [];
+    let labels = [];
+    let maxCount = 0;
+    let maxFreq = 0;
+
+    const chartWidth = 960;
+    const chartHeight = 620;
+
+    function preload() {
+        table = loadTable('Formula1_2025Season_RaceResults.csv', 'csv', 'header');
+    }
+
+    function setup() {
+        let canvas = createCanvas(chartWidth, chartHeight);
+        canvas.parent('p5-canvas');
+        noLoop();
+        buildHistogramBins();
+    }
+
+    function buildHistogramBins() {
+        let raceCount = {};
+
+        for (let i = 0; i < table.getRowCount(); i++) {
+            let driver = table.getString(i, 'Driver');
+            if (!driver) continue;
+            if (!raceCount[driver]) {
+                raceCount[driver] = 0;
+            }
+            raceCount[driver] = raceCount[driver] + 1;
+        }
+
+        let counts = [];
+        for (let d in raceCount) {
+            counts.push(raceCount[d]);
+        }
+
+        if (counts.length === 0) return;
+
+        let minVal = Math.min(...counts);
+        let maxVal = Math.max(...counts);
+        let binCount = 8;
+
+        if (minVal === maxVal) {
+            minVal = 0;
+        }
+
+        let binWidth = Math.max(1, Math.ceil((maxVal - minVal + 1) / binCount));
+        bins = new Array(binCount).fill(0);
+        labels = [];
+
+        for (let i = 0; i < binCount; i++) {
+            let start = minVal + i * binWidth;
+            let end = (i === binCount - 1) ? maxVal : (start + binWidth - 1);
+            labels.push({ start: start, end: end });
+        }
+
+        for (let i = 0; i < counts.length; i++) {
+            let idx = floor((counts[i] - minVal) / binWidth);
+            if (idx >= bins.length) idx = bins.length - 1;
+            bins[idx]++;
+        }
+
+        maxFreq = Math.max(...bins);
+        maxCount = maxVal;
+    }
+
+    function draw() {
+        background(255);
+
+        let mL = 70;
+        let mR = 30;
+        let mT = 50;
+        let mB = 60;
+        let plotW = width - mL - mR;
+        let plotH = height - mT - mB;
+
+        // Faint background grid
+        stroke(230);
+        strokeWeight(1);
+        for (let i = 0; i <= 10; i++) {
+            let y = mT + i * (plotH / 10);
+            line(mL, y, width - mR, y);
+        }
+
+        // Axes
+        stroke(0);
+        strokeWeight(1);
+        line(mL, mT, mL, height - mB);
+        line(mL, height - mB, width - mR, height - mB);
+
+        // Title
+        noStroke();
+        fill(0);
+        textAlign(CENTER, TOP);
+        textSize(16);
+        text('F1 Driver Race Count Distribution', width / 2, 15);
+
+        // Y axis labels and horizontal grid
+        let yTicks = 6;
+        textSize(11);
+        fill(0);
+        textAlign(RIGHT, CENTER);
+        for (let i = 0; i <= yTicks; i++) {
+            let val = Math.round((maxFreq / yTicks) * i);
+            let y = map(val, 0, maxFreq, height - mB, mT);
+            text(val, mL - 8, y);
+        }
+
+        // X axis labels
+        let barW = plotW / bins.length;
+        textAlign(CENTER, TOP);
+        for (let i = 0; i < labels.length; i++) {
+            let x = mL + (i + 0.5) * barW;
+            text(labels[i].end, x, height - mB + 6);
+        }
+
+        // Axis labels
+        textAlign(CENTER, TOP);
+        textSize(12);
+        text('Races per driver', width / 2, height - 28);
+        push();
+        translate(14, height / 2);
+        rotate(-HALF_PI);
+        textAlign(CENTER, TOP);
+        text('Number of drivers', 0, 0);
+        pop();
+
+        // Bars
+        let hovered = -1;
+        for (let i = 0; i < bins.length; i++) {
+            let x = mL + i * barW;
+            let h = map(bins[i], 0, maxFreq, 0, plotH);
+            let y = height - mB - h;
+            let barColor = (mouseX >= x && mouseX <= x + barW && mouseY >= y && mouseY <= height - mB)
+                ? color(255, 150, 50)
+                : color(70, 130, 230);
+            fill(barColor);
+            noStroke();
+            rect(x + 1, y, max(1, barW - 2), h);
+            if (mouseX >= x && mouseX <= x + barW && mouseY >= y && mouseY <= height - mB) {
+                hovered = i;
+            }
+        }
+
+        // Tooltip on bar hover
+        if (hovered >= 0) {
+            let label = labels[hovered].start + ' - ' + labels[hovered].end + ' races: ' + bins[hovered] + ' drivers';
+            let tooltipW = textWidth(label) + 14;
+            let tx = mouseX + 10;
+            let ty = mouseY - 30;
+            if (tx + tooltipW > width) {
+                tx = mouseX - tooltipW - 10;
+            }
+            fill(0, 0, 0, 190);
+            noStroke();
+            rect(tx, ty, tooltipW, 22, 4);
+            fill(255);
+            textAlign(LEFT, CENTER);
+            textSize(11);
+            text(label, tx + 6, ty + 11);
+        }
+    }
+
+    function mouseMoved() {
+        redraw();
+    }
+    </script>
+
+    <h2>Seaborn</h2>
+    <img src="seaborn_histogram_races.png" alt="Seaborn histogram of F1 races per driver" class="plot-frame">
+</body>
+</html>

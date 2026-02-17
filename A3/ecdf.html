@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ECDF - Races per Driver</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        .plot-frame {
+            width: 960px;
+            max-width: 100%;
+        }
+        .plot-frame img {
+            width: 960px;
+            height: 620px;
+            max-width: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <h2>ECDF: Number of Races per Driver</h2>
+    <div id="p5-canvas" class="plot-frame"></div>
+    <script>
+    let table;
+    let ecdfPoints = [];
+    let hovered = null;
+
+    const chartWidth = 960;
+    const chartHeight = 620;
+
+    const mL = 90;
+    const mR = 30;
+    const mT = 50;
+    const mB = 90;
+
+    function preload() {
+        table = loadTable('Formula1_2025Season_RaceResults.csv', 'csv', 'header');
+    }
+
+    function setup() {
+        createCanvas(chartWidth, chartHeight).parent('p5-canvas');
+        noLoop();
+
+        let counts = {};
+        for (let i = 0; i < table.getRowCount(); i++) {
+            let driver = table.getString(i, 'Driver');
+            if (!driver) continue;
+            counts[driver] = (counts[driver] || 0) + 1;
+        }
+
+        let raw = [];
+        for (let d in counts) {
+            if (Number.isFinite(counts[d])) {
+                raw.push(counts[d]);
+            }
+        }
+
+        if (raw.length === 0) return;
+
+        raw.sort((a, b) => a - b);
+        if (raw.length === 0) {
+            return;
+        }
+
+        let minX = raw[0];
+        let maxX = raw[raw.length - 1];
+        if (minX === maxX) {
+            maxX = minX + 1;
+        }
+
+        let plotW = width - mL - mR;
+        let plotH = height - mT - mB;
+
+        for (let i = 0; i < raw.length; i++) {
+            let x = map(raw[i], minX, maxX, mL, mL + plotW);
+            let cdf = (i + 1) / raw.length;
+            let y = map(cdf, 0, 1, height - mB, mT);
+            ecdfPoints.push({
+                x: x,
+                y: y,
+                value: raw[i],
+                cdf: cdf
+            });
+        }
+    }
+
+    function draw() {
+        background(255);
+
+        let plotW = width - mL - mR;
+        let plotH = height - mT - mB;
+        if (ecdfPoints.length === 0) {
+            textAlign(CENTER, CENTER);
+            fill(0);
+            textSize(14);
+            text('No lap data found', width / 2, height / 2);
+            return;
+        }
+
+        // faint grid
+        stroke(230);
+        strokeWeight(1);
+        for (let i = 0; i <= 10; i++) {
+            let y = mT + (plotH / 10) * i;
+            line(mL, y, width - mR, y);
+        }
+
+        // Axes
+        stroke(0);
+        line(mL, mT, mL, height - mB);
+        line(mL, height - mB, width - mR, height - mB);
+
+        // Title and labels
+        noStroke();
+        fill(0);
+        textAlign(CENTER, TOP);
+        textSize(16);
+        text('Empirical CDF of Races per Driver', width / 2, 15);
+        textSize(12);
+        text('Number of races', width / 2, height - 34);
+        push();
+        translate(24, height / 2);
+        rotate(-HALF_PI);
+        text('Cumulative % of Drivers', 0, 0);
+        pop();
+
+        // Y ticks (0 to 1)
+        textSize(11);
+        textAlign(RIGHT, CENTER);
+        for (let i = 0; i <= 10; i++) {
+            let p = i / 10;
+            let y = map(p, 0, 1, height - mB, mT);
+            text((p * 100).toFixed(0) + '%', mL - 8, y);
+        }
+
+        // X ticks
+        textAlign(CENTER, TOP);
+        for (let i = 0; i <= 10; i++) {
+            let x = mL + (plotW / 10) * i;
+            let val = lerp(ecdfPoints[0].value, ecdfPoints[ecdfPoints.length - 1].value, i / 10);
+            text(round(val), x, height - mB + 8);
+        }
+
+        // ECDF line
+        if (ecdfPoints.length > 1) {
+            stroke(70, 130, 230);
+            strokeWeight(2);
+            noFill();
+            beginShape();
+            for (let i = 0; i < ecdfPoints.length; i++) {
+                vertex(ecdfPoints[i].x, ecdfPoints[i].y);
+            }
+            endShape();
+        }
+
+        // Markers
+        hovered = null;
+        for (let i = 0; i < ecdfPoints.length; i++) {
+            let p = ecdfPoints[i];
+            let hit = dist(mouseX, mouseY, p.x, p.y) < 6;
+            fill(hit ? color(255, 150, 60) : color(70, 130, 230, 180));
+            noStroke();
+            ellipse(p.x, p.y, 8, 8);
+            if (hit) hovered = p;
+        }
+
+        // Tooltip
+        if (hovered) {
+            let label = 'Races: ' + hovered.value + ' | CDF: ' + (hovered.cdf * 100).toFixed(1) + '%';
+            let tooltipW = textWidth(label) + 14;
+            let tooltipH = 22;
+            let tx = mouseX + 10;
+            let ty = mouseY - 28;
+
+            if (tx + tooltipW > width) tx = mouseX - tooltipW - 10;
+            if (ty < 5) ty = 5;
+            if (ty + tooltipH > height - mT) ty = height - mT - tooltipH - 4;
+
+            fill(0, 0, 0, 190);
+            noStroke();
+            rect(tx, ty, tooltipW, tooltipH, 4);
+            fill(255);
+            textAlign(LEFT, CENTER);
+            textSize(11);
+            text(label, tx + 6, ty + 11);
+        }
+    }
+
+    function mouseMoved() {
+        redraw();
+    }
+    </script>
+
+    <h2>Seaborn</h2>
+    <img src="seaborn_ecdf_races_per_driver.png" alt="Seaborn ECDF of races per driver" class="plot-frame">
+</body>
+</html>
