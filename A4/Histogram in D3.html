@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>F1 2025: Finishing Position Distribution (D3)</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            padding: 16px;
+            background: #f6f8fb;
+            color: #1f2933;
+        }
+        #chart {
+            width: 100%;
+        }
+        .tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: #1f2933;
+            color: white;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+            opacity: 0;
+            transition: opacity 0.12s;
+        }
+        .axis-title {
+            font-size: 14px;
+            fill: #111827;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <h1>F1 2025 Season — Distribution of Finishing Positions</h1>
+    <p>Each bar shows how many race results ended in that finishing position.</p>
+    <div id="chart"></div>
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        const width = 960;
+        const height = 560;
+        const margin = { top: 60, right: 30, bottom: 65, left: 70 };
+
+        const svg = d3.select("#chart")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const tooltip = d3.select("#tooltip");
+
+        const parseIntValue = (v) => {
+            const n = Number.parseInt(v, 10);
+            return Number.isFinite(n) ? n : null;
+        };
+
+        d3.csv("Formula1_2025Season_RaceResults.csv", (d) => ({
+            position: parseIntValue(d.Position),
+            driver: d.Driver,
+            track: d.Track
+        })).then((rows) => {
+            const countsByPosition = d3.rollup(
+                rows.filter((d) => d.position !== null),
+                (v) => v.length,
+                (d) => d.position
+            );
+
+            const histogramData = Array.from(countsByPosition, ([position, count]) => ({
+                position,
+                count
+            })).sort((a, b) => a.position - b.position);
+
+            const x = d3.scaleBand()
+                .domain(histogramData.map((d) => d.position))
+                .range([margin.left, width - margin.right])
+                .padding(0.12);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(histogramData, (d) => d.count)])
+                .nice()
+                .range([height - margin.bottom, margin.top]);
+
+            svg.append("g")
+                .attr("transform", `translate(0, ${height - margin.bottom})`)
+                .call(d3.axisBottom(x));
+
+            svg.append("g")
+                .attr("transform", `translate(${margin.left}, 0)`)
+                .call(d3.axisLeft(y).ticks(10).tickFormat(d3.format("d")));
+
+            svg.append("text")
+                .attr("class", "axis-title")
+                .attr("x", width / 2)
+                .attr("y", height - 26)
+                .attr("text-anchor", "middle")
+                .text("Finishing Position");
+
+            svg.append("text")
+                .attr("class", "axis-title")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -height / 2)
+                .attr("y", 20)
+                .attr("text-anchor", "middle")
+                .text("Number of Results");
+
+            svg.selectAll(".hist-bar")
+                .data(histogramData)
+                .enter()
+                .append("rect")
+                .attr("x", (d) => x(d.position))
+                .attr("y", (d) => y(d.count))
+                .attr("width", x.bandwidth())
+                .attr("height", (d) => y(0) - y(d.count))
+                .attr("fill", "#2f80ed")
+                .attr("stroke", "#1d4ed8")
+                .attr("stroke-width", 0.5)
+                .on("mouseenter", (event, d) => {
+                    tooltip.style("opacity", 1)
+                        .html(`Position: ${d.position}<br/>Count: ${d.count} results`);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseout", () => tooltip.style("opacity", 0));
+
+            svg.selectAll(".bar-label")
+                .data(histogramData)
+                .enter()
+                .append("text")
+                .attr("x", (d) => x(d.position) + x.bandwidth() / 2)
+                .attr("y", (d) => y(d.count) - 8)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "12px")
+                .attr("fill", "#111827")
+                .text((d) => d.count);
+        });
+    </script>
+</body>
+</html>

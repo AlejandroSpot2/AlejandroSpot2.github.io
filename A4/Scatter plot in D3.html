@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>F1 2025: Grid vs Finish (D3)</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            padding: 16px;
+            background: #f6f8fb;
+            color: #1f2933;
+        }
+        #chart {
+            width: 100%;
+        }
+        .tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: #1f2933;
+            color: white;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+            opacity: 0;
+            transition: opacity 0.12s;
+        }
+        .axis-title {
+            font-size: 14px;
+            fill: #111827;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <h1>F1 2025 Season — Starting Grid vs Race Finishing Position</h1>
+    <div id="chart"></div>
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        const width = 960;
+        const height = 560;
+        const margin = { top: 60, right: 30, bottom: 60, left: 70 };
+
+        const svg = d3.select("#chart")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const tooltip = d3.select("#tooltip");
+
+        const parseNumber = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : null;
+        };
+
+        d3.csv("Formula1_2025Season_RaceResults.csv", (d) => ({
+            track: d.Track,
+            driver: d.Driver,
+            team: d.Team,
+            startingGrid: parseNumber(d["Starting Grid"]),
+            position: parseNumber(d.Position),
+            points: parseNumber(d.Points) ?? 0
+        })).then((rows) => {
+            const points = rows.filter((d) => d.startingGrid !== null && d.position !== null);
+
+            const x = d3.scaleLinear()
+                .domain([1, d3.max(points, (d) => d.startingGrid)])
+                .nice()
+                .range([margin.left, width - margin.right]);
+
+            const y = d3.scaleLinear()
+                .domain([d3.max(points, (d) => d.position), 1])
+                .nice()
+                .range([height - margin.bottom, margin.top]);
+
+            svg.append("g")
+                .attr("transform", `translate(0, ${height - margin.bottom})`)
+                .call(d3.axisBottom(x).ticks(12).tickFormat(d3.format("d")));
+
+            svg.append("g")
+                .attr("transform", `translate(${margin.left}, 0)`)
+                .call(d3.axisLeft(y).ticks(12).tickFormat(d3.format("d")));
+
+            svg.append("text")
+                .attr("class", "axis-title")
+                .attr("x", width / 2)
+                .attr("y", height - 24)
+                .attr("text-anchor", "middle")
+                .text("Starting Grid Position");
+
+            svg.append("text")
+                .attr("class", "axis-title")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -height / 2)
+                .attr("y", 20)
+                .attr("text-anchor", "middle")
+                .text("Finishing Position");
+
+            const color = d3.scaleOrdinal()
+                .domain(["scored", "zero"])
+                .range(["#2f80ed", "#e74c3c"]);
+
+            svg.selectAll(".point")
+                .data(points)
+                .enter()
+                .append("circle")
+                .attr("cx", (d) => x(d.startingGrid))
+                .attr("cy", (d) => y(d.position))
+                .attr("r", 4.8)
+                .attr("fill", (d) => d.points > 0 ? color("scored") : color("zero"))
+                .attr("opacity", 0.85)
+                .on("mouseenter", (event, d) => {
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.driver}</strong><br/>${d.team}<br/>${d.track}<br/>Grid ${d.startingGrid}, Finish ${d.position}, Points ${d.points}`);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseout", () => tooltip.style("opacity", 0))
+                .on("mouseover", () => tooltip.style("opacity", 1));
+
+            svg.append("text")
+                .attr("x", width - 160)
+                .attr("y", 44)
+                .attr("font-size", "12px")
+                .attr("fill", "#1f2933")
+                .text("Blue: scored points, Red: no points");
+        });
+    </script>
+</body>
+</html>
