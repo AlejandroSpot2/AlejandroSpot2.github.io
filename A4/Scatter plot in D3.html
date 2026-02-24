@@ -121,12 +121,43 @@
                 .on("mouseout", () => tooltip.style("opacity", 0))
                 .on("mouseover", () => tooltip.style("opacity", 1));
 
-            svg.append("text")
-                .attr("x", width - 160)
-                .attr("y", 44)
+            const legend = svg.append("g")
+                .attr("transform", "translate(720, 36)");
+
+            legend.append("rect")
+                .attr("width", 225)
+                .attr("height", 40)
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("fill", "#ffffff")
+                .attr("stroke", "#d1d5db")
+                .attr("stroke-width", 1);
+
+            legend.append("circle")
+                .attr("cx", 12)
+                .attr("cy", 12)
+                .attr("r", 5)
+                .attr("fill", "#2f80ed");
+
+            legend.append("text")
+                .attr("x", 24)
+                .attr("y", 16)
                 .attr("font-size", "12px")
                 .attr("fill", "#1f2933")
-                .text("Blue: scored points, Red: no points");
+                .text("Blue = scored points");
+
+            legend.append("circle")
+                .attr("cx", 12)
+                .attr("cy", 30)
+                .attr("r", 5)
+                .attr("fill", "#e74c3c");
+
+            legend.append("text")
+                .attr("x", 24)
+                .attr("y", 34)
+                .attr("font-size", "12px")
+                .attr("fill", "#1f2933")
+                .text("Red = no points");
         });
     </script>
 </body>
