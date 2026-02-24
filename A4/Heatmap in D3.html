@@ -177,8 +177,8 @@
 
             const legendWidth = 170;
             const legendHeight = 14;
-            const legendX = width - margin.right + 20;
-            const legendY = margin.top + 10;
+            const legendX = margin.left;
+            const legendY = height - 58;
 
             const defs = svg.append("defs");
             const gradient = defs.append("linearGradient")
@@ -197,11 +197,30 @@
             }
 
             svg.append("rect")
+                .attr("x", legendX - 4)
+                .attr("y", legendY - 4)
+                .attr("width", legendWidth + 8)
+                .attr("height", legendHeight + 28)
+                .attr("fill", "#ffffff")
+                .attr("stroke", "#d1d5db")
+                .attr("stroke-width", 1);
+
+            svg.append("rect")
                 .attr("x", legendX)
                 .attr("y", legendY)
                 .attr("width", legendWidth)
                 .attr("height", legendHeight)
                 .style("fill", "url(#heat-gradient)");
+
+            svg.append("rect")
+                .attr("x", legendX - 4)
+                .attr("y", legendY - 4)
+                .attr("width", legendWidth + 8)
+                .attr("height", legendHeight + 28)
+                .attr("fill", "#ffffff")
+                .attr("stroke", "#d1d5db")
+                .attr("stroke-width", 1)
+                .lower();
 
             const legendScale = d3.scaleLinear()
                 .domain([0, maxMean])
@@ -214,7 +233,7 @@
             svg.append("text")
                 .attr("class", "axis-title")
                 .attr("x", legendX + legendWidth / 2)
-                .attr("y", legendY - 4)
+                .attr("y", legendY - 8)
                 .attr("text-anchor", "middle")
                 .text("Average points");
         });
