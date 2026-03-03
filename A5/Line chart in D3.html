@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Line chart in D3</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+</head>
+<body>
+<h1>F1 2026 Testing 2 - Practice 3</h1>
+<h3>Line Chart: Lap time through session (3+ drivers)</h3>
+<svg id="chart"></svg>
+<div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
+<script>
+const width = 1100;
+const height = 650;
+const margin = { top: 50, right: 150, bottom: 60, left: 70 };
+const parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
+
+const svg = d3.select("#chart")
+  .attr("width", width)
+  .attr("height", height)
+  .append("g")
+  .attr("transform", `translate(${margin.left},${margin.top})`);
+
+const innerW = width - margin.left - margin.right;
+const innerH = height - margin.top - margin.bottom;
+const tooltip = d3.select("#tooltip");
+
+d3.csv("2026_testing_laps_A5.csv", d => ({
+  Driver: d.Driver,
+  LapNumber: +d.LapNumber,
+  LapTimeSec: +d.LapTimeSec,
+  TyreLife: +d.TyreLife,
+  SpeedST: +d.SpeedST,
+  LapStartDate: parseTime(d.LapStartDate)
+})).then(data => {
+  data = data.filter(d => Number.isFinite(d.LapTimeSec) && d.LapStartDate);
+
+  const topDrivers = Array.from(
+    d3.rollup(data, v => v.length, d => d.Driver),
+    ([driver, count]) => ({ driver, count })
+  )
+    .sort((a, b) => d3.descending(a.count, b.count))
+    .slice(0, 5)
+    .map(d => d.driver);
+
+  const plotData = data.filter(d => topDrivers.includes(d.Driver));
+  const series = d3.groups(plotData, d => d.Driver).map(([driver, values], i) => ({
+    driver,
+    color: d3.schemeTableau10[i % 10],
+    values: values.sort((a, b) => a.LapStartDate - b.LapStartDate)
+  }));
+
+  const x = d3.scaleTime()
+    .domain(d3.extent(plotData, d => d.LapStartDate))
+    .range([0, innerW]);
+
+  const y = d3.scaleLinear()
+    .domain(d3.extent(plotData, d => d.LapTimeSec))
+    .nice()
+    .range([innerH, 0]);
+
+  svg.append("g")
+    .attr("transform", `translate(0,${innerH})`)
+    .call(d3.axisBottom(x).ticks(8));
+
+  svg.append("g")
+    .call(d3.axisLeft(y).ticks(8));
+
+  svg.append("text")
+    .attr("x", innerW / 2)
+    .attr("y", innerH + 45)
+    .attr("text-anchor", "middle")
+    .text("Lap Start Time");
+
+  svg.append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("x", -innerH / 2)
+    .attr("y", -50)
+    .attr("text-anchor", "middle")
+    .text("Lap Time (seconds)");
+
+  const line = d3.line()
+    .x(d => x(d.LapStartDate))
+    .y(d => y(d.LapTimeSec));
+
+  svg.selectAll(".line")
+    .data(series)
+    .join("path")
+    .attr("fill", "none")
+    .attr("stroke", d => d.color)
+    .attr("stroke-width", 2)
+    .attr("d", d => line(d.values));
+
+  svg.selectAll(".point-group")
+    .data(series)
+    .join("g")
+    .selectAll("circle")
+    .data(d => d.values.map(v => ({ ...v, color: d.color })))
+    .join("circle")
+    .attr("cx", d => x(d.LapStartDate))
+    .attr("cy", d => y(d.LapTimeSec))
+    .attr("r", 3)
+    .attr("fill", d => d.color)
+    .on("mouseover", (event, d) => {
+      tooltip.style("opacity", 1).html(
+        `<strong>${d.Driver}</strong><br/>Lap ${d.LapNumber}<br/>Time ${d.LapTimeSec.toFixed(2)} sec<br/>Tyre ${d.TyreLife.toFixed(1)}<br/>SpeedST ${d.SpeedST.toFixed(1)}`
+      );
+    })
+    .on("mousemove", (event) => {
+      tooltip.style("left", `${event.pageX + 10}px`)
+        .style("top", `${event.pageY + 10}px`);
+    })
+    .on("mouseout", () => tooltip.style("opacity", 0));
+
+  const legend = d3.select("#chart").append("g")
+    .attr("transform", `translate(${width - 120}, 70)`);
+
+  legend.selectAll("g")
+    .data(series)
+    .join("g")
+    .attr("transform", (d, i) => `translate(0,${i * 20})`)
+    .each(function(d) {
+      d3.select(this).append("line")
+        .attr("x1", 0).attr("x2", 16)
+        .attr("y1", 9).attr("y2", 9)
+        .attr("stroke", d.color)
+        .attr("stroke-width", 3);
+      d3.select(this).append("text")
+        .attr("x", 22)
+        .attr("y", 13)
+        .attr("font-size", "12px")
+        .text(d.driver);
+    });
+});
+</script>
+</body>
+</html>

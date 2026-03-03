@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bubble chart in D3</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-svg-legend@2.25.6/d3-legend.min.js"></script>
+</head>
+<body>
+<h1>F1 2026 Testing 2 - Practice 3</h1>
+<h3>Bubble Chart: Lap time by tyre life</h3>
+<div id="compound-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"></div>
+<div id="status"></div>
+<svg id="chart"></svg>
+<div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
+<script>
+const width = 1050;
+const height = 620;
+const margin = { top: 50, right: 40, bottom: 60, left: 80 };
+
+const svg = d3.select("#chart")
+  .attr("width", width)
+  .attr("height", height)
+  .append("g")
+  .attr("transform", `translate(${margin.left},${margin.top})`);
+
+const innerW = width - margin.left - margin.right;
+const innerH = height - margin.top - margin.bottom;
+const tooltip = d3.select("#tooltip");
+const status = d3.select("#status");
+
+d3.csv("2026_testing_laps_A5.csv", d => ({
+  Driver: d.Driver,
+  Team: d.Team,
+  Compound: d.Compound,
+  LapTimeSec: +d.LapTimeSec,
+  TyreLife: +d.TyreLife,
+  SpeedST: +d.SpeedST
+})).then(data => {
+  const grouped = d3.rollups(
+    data.filter(d => Number.isFinite(d.LapTimeSec) && Number.isFinite(d.TyreLife) && Number.isFinite(d.SpeedST)),
+    v => ({
+      Driver: v[0].Driver,
+      Team: v[0].Team,
+      Compound: v[0].Compound,
+      avgLapTime: d3.mean(v, d => d.LapTimeSec),
+      avgTyreLife: d3.mean(v, d => d.TyreLife),
+      avgSpeedST: d3.mean(v, d => d.SpeedST),
+      count: v.length
+    }),
+    d => `${d.Driver}__${d.Compound}`
+  )
+    .map(d => d[1])
+    .filter(d => d.Compound && d.count >= 5);
+
+  const compounds = ["All", ...new Set(grouped.map(d => d.Compound))];
+  const color = d3.scaleOrdinal()
+    .domain(compounds.slice(1))
+    .range(d3.schemeTableau10);
+  const symbolTypes = [
+    d3.symbolCircle,
+    d3.symbolSquare,
+    d3.symbolTriangle,
+    d3.symbolDiamond,
+    d3.symbolCross,
+    d3.symbolStar,
+    d3.symbolWye
+  ];
+
+  const topTeams = Array.from(
+    d3.rollup(grouped, v => d3.sum(v, d => d.count), d => d.Team),
+    ([team, total]) => ({ team, total })
+  )
+    .sort((a, b) => d3.descending(a.total, b.total))
+    .slice(0, 5)
+    .map(d => d.team);
+
+  const shapeDomain = [...topTeams, "Other"];
+  const shape = d3.scaleOrdinal()
+    .domain(shapeDomain)
+    .range(shapeDomain.map((_, i) => symbolTypes[i % symbolTypes.length]));
+
+  const x = d3.scaleLinear()
+    .domain(d3.extent(grouped, d => d.avgLapTime))
+    .nice()
+    .range([0, innerW]);
+
+  const y = d3.scaleLinear()
+    .domain(d3.extent(grouped, d => d.avgTyreLife))
+    .nice()
+    .range([innerH, 0]);
+
+  const r = d3.scaleSqrt()
+    .domain(d3.extent(grouped, d => d.avgSpeedST))
+    .range([4, 20]);
+
+  svg.append("g")
+    .attr("transform", `translate(0,${innerH})`)
+    .call(d3.axisBottom(x).ticks(8));
+
+  svg.append("g")
+    .call(d3.axisLeft(y).ticks(8));
+
+  svg.append("text")
+    .attr("x", innerW / 2)
+    .attr("y", innerH + 45)
+    .attr("text-anchor", "middle")
+    .text("Average Lap Time (seconds)");
+
+  svg.append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("x", -innerH / 2)
+    .attr("y", -52)
+    .attr("text-anchor", "middle")
+    .text("Average Tyre Life (laps)");
+
+  // d3-legend color legend
+  const colorLegend = d3.legendColor()
+    .scale(color)
+    .title("Compound (color)")
+    .shape("circle")
+    .shapeRadius(5)
+    .shapePadding(7);
+
+  svg.append("g")
+    .attr("transform", `translate(${innerW - 110}, 10)`)
+    .call(colorLegend);
+
+  // d3-legend shape legend
+  const shapeLegendScale = d3.scaleOrdinal()
+    .domain(shapeDomain)
+    .range(shapeDomain.map(d => shape(d)));
+
+  const shapeLegend = d3.legendSymbol()
+    .scale(shapeLegendScale)
+    .title("Team (shape)")
+    .shapePadding(7);
+
+  svg.append("g")
+    .attr("transform", `translate(${innerW - 110}, 140)`)
+    .call(shapeLegend);
+
+  const buttons = d3.select("#compound-buttons")
+    .selectAll("button")
+    .data(compounds)
+    .join("button")
+    .text(d => d)
+    .style("padding", "5px 10px")
+    .style("border", "1px solid #ccc")
+    .style("background", "#fff")
+    .style("cursor", "pointer");
+
+  function draw(selected) {
+    buttons.style("background", d => d === selected ? "#ddd" : "#fff");
+    const shown = selected === "All" ? grouped : grouped.filter(d => d.Compound === selected);
+    status.text(`Showing ${shown.length} grouped points`);
+
+    const bubbles = svg.selectAll(".bubble")
+      .data(shown, d => `${d.Driver}-${d.Compound}`)
+      .join("circle")
+      .attr("class", "bubble")
+      .attr("cx", d => x(d.avgLapTime))
+      .attr("cy", d => y(d.avgTyreLife))
+      .attr("r", d => r(d.avgSpeedST))
+      .attr("fill", d => color(d.Compound))
+      .attr("opacity", 0.75)
+      .on("mouseover", (event, d) => {
+        tooltip.style("opacity", 1).html(
+          `<strong>${d.Driver}</strong><br/>Team ${d.Team}<br/>Compound ${d.Compound}<br/>Avg Lap ${d.avgLapTime.toFixed(2)} sec<br/>Avg Tyre ${d.avgTyreLife.toFixed(2)}<br/>Avg SpeedST ${d.avgSpeedST.toFixed(1)}`
+        );
+      })
+      .on("mousemove", (event) => {
+        tooltip.style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY + 10}px`);
+      })
+      .on("mouseout", () => tooltip.style("opacity", 0));
+
+    // Small symbol inside each bubble so shape legend matches plotted marks.
+    svg.selectAll(".team-symbol")
+      .data(shown, d => `${d.Driver}-${d.Compound}`)
+      .join("path")
+      .attr("class", "team-symbol")
+      .attr("d", d => {
+        const teamKey = topTeams.includes(d.Team) ? d.Team : "Other";
+        return d3.symbol().type(shape(teamKey)).size(55)();
+      })
+      .attr("transform", d => `translate(${x(d.avgLapTime)},${y(d.avgTyreLife)})`)
+      .attr("fill", "#ffffff")
+      .attr("stroke", "#111")
+      .attr("stroke-width", 0.7)
+      .style("pointer-events", "none");
+  }
+
+  buttons.on("click", (event, d) => draw(d));
+  draw("All");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scatterplot Matrix</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+</head>
+<body>
+<h1>F1 2026 Testing 2 - Practice 3</h1>
+<h3>Scatterplot Matrix (3x3)</h3>
+<div id="buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"></div>
+<div id="status"></div>
+<svg id="splom"></svg>
+<script>
+const cellSize = 180;
+const padding = 40;
+const vars = ["LapTimeSec", "TyreLife", "SpeedI1"];
+const labels = {
+  LapTimeSec: "Lap Time",
+  TyreLife: "Tyre Life",
+  SpeedI1: "Speed I1"
+};
+
+d3.csv("2026_testing_laps_A5.csv", d => ({
+  LapTimeSec: +d.LapTimeSec,
+  TyreLife: +d.TyreLife,
+  SpeedI1: +d.SpeedI1,
+  Compound: d.Compound
+})).then(rows => {
+  rows = rows.filter(d => Number.isFinite(d.LapTimeSec) && Number.isFinite(d.TyreLife) && Number.isFinite(d.SpeedI1));
+  const compounds = ["All", ...new Set(rows.map(d => d.Compound).filter(Boolean))];
+  const buttons = d3.select("#buttons")
+    .selectAll("button")
+    .data(compounds)
+    .join("button")
+    .text(d => d)
+    .style("padding", "5px 10px")
+    .style("border", "1px solid #ccc")
+    .style("background", "#fff")
+    .style("cursor", "pointer");
+
+  function draw(data) {
+    d3.select("#status").text(`Showing ${data.length} rows`);
+    const n = vars.length;
+    const size = n * cellSize;
+
+    const svg = d3.select("#splom")
+      .attr("width", size + padding + 40)
+      .attr("height", size + padding + 40);
+    svg.selectAll("*").remove();
+
+    const g = svg.append("g")
+      .attr("transform", `translate(${padding / 2 + 20},${padding / 2 + 20})`);
+
+    const scales = {};
+    vars.forEach(v => {
+      scales[v] = d3.scaleLinear()
+        .domain(d3.extent(data, d => d[v]))
+        .nice()
+        .range([10, cellSize - 10]);
+    });
+
+    vars.forEach((yVar, row) => {
+      vars.forEach((xVar, col) => {
+        const cell = g.append("g")
+          .attr("transform", `translate(${col * cellSize},${row * cellSize})`);
+
+        cell.append("rect")
+          .attr("width", cellSize)
+          .attr("height", cellSize)
+          .attr("fill", "none")
+          .attr("stroke", "#aaa")
+          .on("mouseover", function() {
+            d3.selectAll(".matrix-cell").attr("stroke", "#aaa").attr("stroke-width", 1);
+            d3.select(this).attr("stroke", "#000").attr("stroke-width", 2);
+          })
+          .attr("class", "matrix-cell");
+
+        if (row === col) {
+          cell.append("text")
+            .attr("x", cellSize / 2)
+            .attr("y", cellSize / 2)
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "middle")
+            .attr("font-size", "12px")
+            .text(labels[xVar]);
+        } else {
+          const y = scales[yVar].copy().range([cellSize - 10, 10]);
+          cell.selectAll("circle")
+            .data(data)
+            .join("circle")
+            .attr("cx", d => scales[xVar](d[xVar]))
+            .attr("cy", d => y(d[yVar]))
+            .attr("r", 2)
+            .attr("fill", "steelblue")
+            .attr("opacity", 0.6);
+        }
+      });
+    });
+  }
+
+  buttons.on("click", (event, selected) => {
+    buttons.style("background", d => d === selected ? "#ddd" : "#fff");
+    const filtered = selected === "All" ? rows : rows.filter(d => d.Compound === selected);
+    draw(filtered);
+  });
+
+  draw(rows);
+});
+</script>
+</body>
+</html>
