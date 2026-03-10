@@ -5,41 +5,13 @@
     <title>Diverging bar chart in D3</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3-svg-legend@2.25.6/d3-legend.min.js"></script>
-    <style>
-        body {
-            font-family: "Trebuchet MS", Arial, sans-serif;
-            padding: 16px;
-            background: #f7f9fc;
-            color: #1f2933;
-        }
-        .axis-title {
-            font-size: 14px;
-            font-weight: 600;
-            fill: #1f2933;
-        }
-        .note {
-            color: #52606d;
-            margin-top: -8px;
-            margin-bottom: 14px;
-        }
-        .tooltip {
-            position: absolute;
-            pointer-events: none;
-            background: #102a43;
-            color: #ffffff;
-            border-radius: 6px;
-            padding: 8px 10px;
-            font-size: 13px;
-            opacity: 0;
-        }
-    </style>
 </head>
 <body>
     <h1>2026 Australian Grand Prix</h1>
     <h3>Diverging Bar Chart: Positions gained or lost from the starting grid</h3>
-    <p class="note">Positive values mean a driver finished ahead of their grid spot. ColorBrewer palette used: BrBG.</p>
     <svg id="chart"></svg>
-    <div id="tooltip" class="tooltip"></div>
+    <div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
+    <p>ColorBrewer scale used: BrBG.</p>
 
     <script>
         // References: D3 documentation https://d3js.org/ and d3-legend https://d3-legend.susielu.com/
@@ -101,18 +73,18 @@
                 .attr("stroke-dasharray", "4 3");
 
             chart.append("text")
-                .attr("class", "axis-title")
                 .attr("x", innerWidth / 2)
                 .attr("y", innerHeight + 42)
                 .attr("text-anchor", "middle")
+                .attr("font-size", "14px")
                 .text("Positions gained (+) or lost (-)");
 
             chart.append("text")
-                .attr("class", "axis-title")
                 .attr("transform", "rotate(-90)")
                 .attr("x", -innerHeight / 2)
                 .attr("y", -98)
                 .attr("text-anchor", "middle")
+                .attr("font-size", "14px")
                 .text("Driver");
 
             chart.selectAll(".bar")
