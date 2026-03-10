@@ -1,0 +1,23 @@
+{
+  "name": "alejandrospot2.github.io",
+  "version": "1.0.0",
+  "description": "",
+  "main": "playwright-smoke.js",
+  "scripts": {
+    "playwright:smoke": "node playwright-smoke.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlejandroSpot2/AlejandroSpot2.github.io.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AlejandroSpot2/AlejandroSpot2.github.io/issues"
+  },
+  "homepage": "https://github.com/AlejandroSpot2/AlejandroSpot2.github.io#readme",
+  "devDependencies": {
+    "playwright": "^1.58.2"
+  }
+}

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Line chart in D3</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-svg-legend@2.25.6/d3-legend.min.js"></script>
+    <style>
+        body {
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            padding: 16px;
+            background: #f7f9fc;
+            color: #1f2933;
+        }
+        .axis-title {
+            font-size: 14px;
+            font-weight: 600;
+            fill: #1f2933;
+        }
+        .note {
+            color: #52606d;
+            margin-top: -8px;
+            margin-bottom: 14px;
+        }
+        .tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: #102a43;
+            color: #ffffff;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>2026 Australian Grand Prix</h1>
+    <h3>Line Chart: Race position by lap for the top five finishers</h3>
+    <p class="note">Each line tracks one driver through the race. ColorBrewer palette used: Set1.</p>
+    <svg id="chart"></svg>
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        // References: D3 documentation https://d3js.org/ and d3-legend https://d3-legend.susielu.com/
+        const width = 1180;
+        const height = 700;
+        const margin = { top: 70, right: 220, bottom: 60, left: 90 };
+
+        const svg = d3.select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+        const chart = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const tooltip = d3.select("#tooltip");
+
+        d3.csv("australia_2026_lap_positions.csv", (d) => ({
+            Driver: d.Driver,
+            Team: d.Team,
+            LapNumber: +d.LapNumber,
+            Position: +d.Position,
+            FinalPosition: +d.FinalPosition,
+            LapTimeSec: +d.LapTimeSec,
+            Compound: d.Compound,
+            TyreLife: +d.TyreLife
+        })).then((data) => {
+            const rows = data
+                .filter((d) => Number.isFinite(d.LapNumber) && Number.isFinite(d.Position) && d.FinalPosition <= 5)
+                .sort((a, b) => d3.ascending(a.LapNumber, b.LapNumber));
+
+            const drivers = [...new Set(rows.map((d) => d.Driver))].sort((a, b) => {
+                const rowA = rows.find((row) => row.Driver === a);
+                const rowB = rows.find((row) => row.Driver === b);
+                return d3.ascending(rowA.FinalPosition, rowB.FinalPosition);
+            });
+
+            const series = d3.groups(rows, (d) => d.Driver).map(([driver, values]) => ({
+                driver,
+                values: values.sort((a, b) => d3.ascending(a.LapNumber, b.LapNumber))
+            }));
+
+            const x = d3.scaleLinear()
+                .domain(d3.extent(rows, (d) => d.LapNumber))
+                .nice()
+                .range([0, innerWidth]);
+
+            const y = d3.scaleLinear()
+                .domain([d3.max(rows, (d) => d.Position), 1])
+                .nice()
+                .range([innerHeight, 0]);
+
+            const color = d3.scaleOrdinal()
+                .domain(drivers)
+                .range(d3.schemeSet1.slice(0, drivers.length));
+
+            chart.append("g")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(x).ticks(12).tickFormat(d3.format("d")));
+
+            chart.append("g")
+                .call(d3.axisLeft(y).ticks(10).tickFormat(d3.format("d")));
+
+            chart.append("text")
+                .attr("class", "axis-title")
+                .attr("x", innerWidth / 2)
+                .attr("y", innerHeight + 42)
+                .attr("text-anchor", "middle")
+                .text("Lap number");
+
+            chart.append("text")
+                .attr("class", "axis-title")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -innerHeight / 2)
+                .attr("y", -58)
+                .attr("text-anchor", "middle")
+                .text("Race position");
+
+            const line = d3.line()
+                .curve(d3.curveStepAfter)
+                .x((d) => x(d.LapNumber))
+                .y((d) => y(d.Position));
+
+            chart.selectAll(".driver-line")
+                .data(series)
+                .enter()
+                .append("path")
+                .attr("class", "driver-line")
+                .attr("fill", "none")
+                .attr("stroke", (d) => color(d.driver))
+                .attr("stroke-width", 2.5)
+                .attr("d", (d) => line(d.values));
+
+            chart.selectAll(".point-group")
+                .data(series)
+                .enter()
+                .append("g")
+                .selectAll("circle")
+                .data((d) => d.values)
+                .enter()
+                .append("circle")
+                .attr("cx", (d) => x(d.LapNumber))
+                .attr("cy", (d) => y(d.Position))
+                .attr("r", 3.2)
+                .attr("fill", (d) => color(d.Driver))
+                .on("mouseenter", (event, d) => {
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.Driver}</strong><br/>${d.Team}<br/>Lap ${d.LapNumber}<br/>Position: P${d.Position}<br/>Compound: ${d.Compound}<br/>Lap time: ${Number.isFinite(d.LapTimeSec) ? d.LapTimeSec.toFixed(3) + " s" : "N/A"}`);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseleave", () => tooltip.style("opacity", 0));
+
+            const legend = d3.legendColor()
+                .scale(color)
+                .title("Top five finishers")
+                .shapeWidth(28)
+                .shapeHeight(10)
+                .shapePadding(8);
+
+            svg.append("g")
+                .attr("transform", `translate(${width - 190}, ${margin.top + 10})`)
+                .call(legend);
+        });
+    </script>
+</body>
+</html>

@@ -4,6 +4,11 @@
 # Ignore Python cache
 **/__pycache__/
 **/*.pyc
+**/.fastf1_cache/
+
+# Ignore Node dependencies
+node_modules/
+.tmp-playwright/
 
 # Ignore Instructions.md in any directory (e.g. A2/, or future assignment folders)
 **/Instructions.md

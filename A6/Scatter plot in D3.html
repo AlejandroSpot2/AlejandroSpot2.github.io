@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Scatter plot in D3</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-svg-legend@2.25.6/d3-legend.min.js"></script>
+    <style>
+        body {
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            padding: 16px;
+            background: #f7f9fc;
+            color: #1f2933;
+        }
+        .axis-title {
+            font-size: 14px;
+            font-weight: 600;
+            fill: #1f2933;
+        }
+        .note {
+            color: #52606d;
+            margin-top: -8px;
+            margin-bottom: 14px;
+        }
+        .tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: #102a43;
+            color: #ffffff;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>2026 Australian Grand Prix</h1>
+    <h3>Scatter Plot: Fastest lap time vs average speed trap speed, colored by team</h3>
+    <p class="note">Quantitative variables: fastest lap time and average speed trap speed. Qualitative variable: team. ColorBrewer palette used: Set3.</p>
+    <svg id="chart"></svg>
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        // References: D3 documentation https://d3js.org/ and d3-legend https://d3-legend.susielu.com/
+        const width = 1180;
+        const height = 700;
+        const margin = { top: 70, right: 250, bottom: 60, left: 90 };
+
+        const svg = d3.select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+        const chart = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const tooltip = d3.select("#tooltip");
+
+        const formatLapTime = (seconds) => `${seconds.toFixed(3)} s`;
+
+        d3.csv("australia_2026_driver_summary.csv", (d) => ({
+            Driver: d.Driver,
+            Team: d.Team,
+            FastestLapTimeSec: +d.FastestLapTimeSec,
+            AvgSpeedST: +d.AvgSpeedST,
+            Position: +d.Position
+        })).then((data) => {
+            const rows = data.filter((d) => Number.isFinite(d.FastestLapTimeSec) && Number.isFinite(d.AvgSpeedST));
+            const teams = [...new Set(rows.map((d) => d.Team))].sort(d3.ascending);
+
+            const x = d3.scaleLinear()
+                .domain(d3.extent(rows, (d) => d.FastestLapTimeSec))
+                .nice()
+                .range([0, innerWidth]);
+
+            const y = d3.scaleLinear()
+                .domain(d3.extent(rows, (d) => d.AvgSpeedST))
+                .nice()
+                .range([innerHeight, 0]);
+
+            const color = d3.scaleOrdinal()
+                .domain(teams)
+                .range(d3.schemeSet3.slice(0, teams.length));
+
+            chart.append("g")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(x).ticks(8));
+
+            chart.append("g")
+                .call(d3.axisLeft(y).ticks(8));
+
+            chart.append("text")
+                .attr("class", "axis-title")
+                .attr("x", innerWidth / 2)
+                .attr("y", innerHeight + 42)
+                .attr("text-anchor", "middle")
+                .text("Fastest lap time (seconds)");
+
+            chart.append("text")
+                .attr("class", "axis-title")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -innerHeight / 2)
+                .attr("y", -58)
+                .attr("text-anchor", "middle")
+                .text("Average speed trap speed (km/h)");
+
+            chart.selectAll(".point")
+                .data(rows)
+                .enter()
+                .append("circle")
+                .attr("class", "point")
+                .attr("cx", (d) => x(d.FastestLapTimeSec))
+                .attr("cy", (d) => y(d.AvgSpeedST))
+                .attr("r", 7)
+                .attr("fill", (d) => color(d.Team))
+                .attr("stroke", "#243b53")
+                .attr("stroke-width", 0.7)
+                .attr("opacity", 0.88)
+                .on("mouseenter", (event, d) => {
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.Driver}</strong><br/>${d.Team}<br/>Fastest lap: ${formatLapTime(d.FastestLapTimeSec)}<br/>Avg speed trap: ${d.AvgSpeedST.toFixed(1)} km/h<br/>Finish: P${d.Position}`);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseleave", () => tooltip.style("opacity", 0));
+
+            chart.selectAll(".driver-label")
+                .data(rows)
+                .enter()
+                .append("text")
+                .attr("x", (d) => x(d.FastestLapTimeSec) + 9)
+                .attr("y", (d) => y(d.AvgSpeedST) + 4)
+                .attr("font-size", "11px")
+                .attr("fill", "#243b53")
+                .text((d) => d.Driver);
+
+            const legend = d3.legendColor()
+                .scale(color)
+                .title("Team")
+                .shape("circle")
+                .shapeRadius(6)
+                .shapePadding(6);
+
+            svg.append("g")
+                .attr("transform", `translate(${width - 220}, ${margin.top + 10})`)
+                .call(legend);
+        });
+    </script>
+</body>
+</html>

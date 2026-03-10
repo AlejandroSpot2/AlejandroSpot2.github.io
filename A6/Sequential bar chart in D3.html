@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sequential bar chart in D3</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-svg-legend@2.25.6/d3-legend.min.js"></script>
+    <style>
+        body {
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            padding: 16px;
+            background: #f7f9fc;
+            color: #1f2933;
+        }
+        .axis-title {
+            font-size: 14px;
+            font-weight: 600;
+            fill: #1f2933;
+        }
+        .note {
+            color: #52606d;
+            margin-top: -8px;
+            margin-bottom: 14px;
+        }
+        .tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: #102a43;
+            color: #ffffff;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>2026 Australian Grand Prix</h1>
+    <h3>Sequential Bar Chart: Race points scored by driver</h3>
+    <p class="note">Data source: FastF1 race results exported to CSV. ColorBrewer palette used: Blues.</p>
+    <svg id="chart"></svg>
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        // References: D3 documentation https://d3js.org/ and d3-legend https://d3-legend.susielu.com/
+        const width = 1100;
+        const height = 760;
+        const margin = { top: 70, right: 170, bottom: 60, left: 120 };
+
+        const svg = d3.select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+        const chart = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const tooltip = d3.select("#tooltip");
+
+        d3.csv("australia_2026_driver_summary.csv", (d) => ({
+            Driver: d.Driver,
+            Team: d.Team,
+            Points: +d.Points,
+            Position: +d.Position,
+            Status: d.Status
+        })).then((data) => {
+            const rows = data
+                .filter((d) => Number.isFinite(d.Points))
+                .sort((a, b) => d3.descending(a.Points, b.Points) || d3.ascending(a.Position, b.Position));
+
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(rows, (d) => d.Points)])
+                .nice()
+                .range([0, innerWidth]);
+
+            const y = d3.scaleBand()
+                .domain(rows.map((d) => d.Driver))
+                .range([0, innerHeight])
+                .padding(0.18);
+
+            const color = d3.scaleSequential()
+                .domain([0, d3.max(rows, (d) => d.Points)])
+                .interpolator(d3.interpolateBlues);
+
+            chart.append("g")
+                .call(d3.axisLeft(y));
+
+            chart.append("g")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(x).ticks(8));
+
+            chart.append("text")
+                .attr("class", "axis-title")
+                .attr("x", innerWidth / 2)
+                .attr("y", innerHeight + 42)
+                .attr("text-anchor", "middle")
+                .text("Race points");
+
+            chart.append("text")
+                .attr("class", "axis-title")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -innerHeight / 2)
+                .attr("y", -88)
+                .attr("text-anchor", "middle")
+                .text("Driver");
+
+            chart.selectAll(".bar")
+                .data(rows)
+                .enter()
+                .append("rect")
+                .attr("class", "bar")
+                .attr("x", 0)
+                .attr("y", (d) => y(d.Driver))
+                .attr("width", (d) => x(d.Points))
+                .attr("height", y.bandwidth())
+                .attr("fill", (d) => color(d.Points))
+                .on("mouseenter", (event, d) => {
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.Driver}</strong><br/>${d.Team}<br/>Points: ${d.Points}<br/>Finish: P${d.Position}<br/>Status: ${d.Status}`);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseleave", () => tooltip.style("opacity", 0));
+
+            chart.selectAll(".value-label")
+                .data(rows)
+                .enter()
+                .append("text")
+                .attr("x", (d) => x(d.Points) + 6)
+                .attr("y", (d) => y(d.Driver) + y.bandwidth() / 2 + 4)
+                .attr("font-size", "12px")
+                .attr("fill", "#243b53")
+                .text((d) => d.Points);
+
+            const legend = d3.legendColor()
+                .scale(color)
+                .title("Points scale")
+                .shapeWidth(44)
+                .cells(7)
+                .orient("vertical")
+                .labelFormat(d3.format(".0f"));
+
+            svg.append("g")
+                .attr("transform", `translate(${width - 130}, ${margin.top + 10})`)
+                .call(legend);
+        });
+    </script>
+</body>
+</html>
