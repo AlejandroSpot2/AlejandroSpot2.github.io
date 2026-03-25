@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Streamgraph in D3</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-svg-legend@2.25.6/d3-legend.min.js"></script>
+</head>
+<body>
+    <h1>2026 Chinese Grand Prix</h1>
+    <h3>Streamgraph: Projected race points through the laps for the 10 points-scoring drivers</h3>
+    <svg id="chart"></svg>
+    <div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
+
+    <script>
+        // References: D3 documentation https://d3js.org/ and d3-legend https://d3-legend.susielu.com/
+        const width = 1240;
+        const height = 760;
+        const margin = { top: 70, right: 260, bottom: 60, left: 90 };
+        const pointsByPosition = new Map([
+            [1, 25], [2, 18], [3, 15], [4, 12], [5, 10],
+            [6, 8], [7, 6], [8, 4], [9, 2], [10, 1]
+        ]);
+
+        const svg = d3.select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+        const chart = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const tooltip = d3.select("#tooltip");
+
+        d3.csv("chinese_2026_lap_positions.csv", (d) => ({
+            Driver: d.Driver,
+            Team: d.Team,
+            LapNumber: +d.LapNumber,
+            Position: +d.Position,
+            FinalPosition: +d.FinalPosition
+        })).then((data) => {
+            const rows = data
+                .filter((d) => Number.isFinite(d.LapNumber) && Number.isFinite(d.Position) && Number.isFinite(d.FinalPosition) && d.FinalPosition <= 10)
+                .map((d) => ({
+                    ...d,
+                    ProjectedPoints: pointsByPosition.get(d.Position) || 0
+                }))
+                .sort((a, b) => d3.ascending(a.LapNumber, b.LapNumber));
+
+            const finalOrder = new Map(
+                Array.from(
+                    d3.rollup(rows, (values) => d3.min(values, (d) => d.FinalPosition), (d) => d.Driver),
+                    ([driver, finalPosition]) => [driver, finalPosition]
+                )
+            );
+
+            const driverOrder = [...new Set(rows.map((d) => d.Driver))].sort((a, b) => d3.ascending(finalOrder.get(a), finalOrder.get(b)));
+
+            const rowsByDriverLap = new Map(rows.map((d) => [`${d.Driver}-${d.LapNumber}`, d]));
+
+            const lapData = d3.groups(rows, (d) => d.LapNumber)
+                .map(([lapNumber, values]) => {
+                    const row = { LapNumber: +lapNumber };
+
+                    driverOrder.forEach((driver) => {
+                        row[driver] = 0;
+                    });
+
+                    values.forEach((value) => {
+                        row[value.Driver] = value.ProjectedPoints;
+                    });
+
+                    return row;
+                })
+                .sort((a, b) => d3.ascending(a.LapNumber, b.LapNumber));
+
+            const stack = d3.stack()
+                .keys(driverOrder)
+                .offset(d3.stackOffsetWiggle);
+
+            const stacked = stack(lapData);
+
+            const x = d3.scaleLinear()
+                .domain(d3.extent(lapData, (d) => d.LapNumber))
+                .nice()
+                .range([0, innerWidth]);
+
+            const y = d3.scaleLinear()
+                .domain([
+                    d3.min(stacked, (series) => d3.min(series, (d) => d[0])),
+                    d3.max(stacked, (series) => d3.max(series, (d) => d[1]))
+                ])
+                .nice()
+                .range([innerHeight, 0]);
+
+            const color = d3.scaleOrdinal()
+                .domain(driverOrder)
+                .range(d3.schemeTableau10);
+
+            const area = d3.area()
+                .curve(d3.curveBasis)
+                .x((d) => x(d.data.LapNumber))
+                .y0((d) => y(d[0]))
+                .y1((d) => y(d[1]));
+
+            chart.append("g")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(x).ticks(12).tickFormat(d3.format("d")));
+
+            chart.append("g")
+                .call(d3.axisLeft(y).ticks(8));
+
+            chart.append("text")
+                .attr("x", innerWidth / 2)
+                .attr("y", innerHeight + 42)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "14px")
+                .text("Lap number");
+
+            chart.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -innerHeight / 2)
+                .attr("y", -58)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "14px")
+                .text("Wiggle-stacked projected points");
+
+            const layers = chart.selectAll(".layer")
+                .data(stacked)
+                .enter()
+                .append("path")
+                .attr("class", "layer")
+                .attr("fill", (d) => color(d.key))
+                .attr("opacity", 0.9)
+                .attr("d", area)
+                .on("mouseenter", function(event, d) {
+                    chart.selectAll(".layer").attr("opacity", 0.28);
+                    d3.select(this).attr("opacity", 1);
+                })
+                .on("mousemove", function(event, d) {
+                    const [pointerX] = d3.pointer(event, chart.node());
+                    const minLap = d3.min(lapData, (row) => row.LapNumber);
+                    const maxLap = d3.max(lapData, (row) => row.LapNumber);
+                    const lapNumber = Math.max(minLap, Math.min(maxLap, Math.round(x.invert(pointerX))));
+                    const row = rowsByDriverLap.get(`${d.key}-${lapNumber}`);
+
+                    if (!row) {
+                        return;
+                    }
+
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.key}</strong><br/>${row.Team}<br/>Lap ${lapNumber}<br/>Projected points: ${row.ProjectedPoints}<br/>Current position: P${row.Position}<br/>Final classification: P${row.FinalPosition}`);
+
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseleave", function() {
+                    chart.selectAll(".layer").attr("opacity", 0.9);
+                    tooltip.style("opacity", 0);
+                });
+
+            const legend = d3.legendColor()
+                .scale(color)
+                .title("Points scorers")
+                .shapeWidth(28)
+                .shapeHeight(10)
+                .shapePadding(8);
+
+            svg.append("g")
+                .attr("transform", `translate(${width - 220}, ${margin.top + 10})`)
+                .call(legend);
+        });
+    </script>
+</body>
+</html>

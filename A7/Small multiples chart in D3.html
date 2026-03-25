@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Small multiples chart in D3</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-svg-legend@2.25.6/d3-legend.min.js"></script>
+</head>
+<body>
+    <h1>2026 Chinese Grand Prix</h1>
+    <h3>Small Multiples Chart: Lap time by lap for the top six finishers</h3>
+    <svg id="chart"></svg>
+    <div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
+
+    <script>
+        // References: D3 documentation https://d3js.org/ and d3-legend https://d3-legend.susielu.com/
+        const width = 1280;
+        const height = 920;
+        const margin = { top: 70, right: 240, bottom: 70, left: 90 };
+        const columns = 2;
+        const gapX = 45;
+        const gapY = 58;
+
+        const svg = d3.select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+        const chart = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const tooltip = d3.select("#tooltip");
+
+        d3.csv("chinese_2026_lap_positions.csv", (d) => ({
+            Driver: d.Driver,
+            Team: d.Team,
+            LapNumber: +d.LapNumber,
+            Position: +d.Position,
+            FinalPosition: +d.FinalPosition,
+            LapTimeSec: +d.LapTimeSec,
+            Compound: d.Compound,
+            TyreLife: +d.TyreLife
+        })).then((data) => {
+            const rows = data
+                .filter((d) => Number.isFinite(d.LapNumber) && Number.isFinite(d.LapTimeSec) && d.LapTimeSec > 60 && Number.isFinite(d.FinalPosition) && d.FinalPosition <= 6)
+                .sort((a, b) => d3.ascending(a.LapNumber, b.LapNumber));
+
+            const finalOrder = new Map(
+                Array.from(
+                    d3.rollup(rows, (values) => d3.min(values, (d) => d.FinalPosition), (d) => d.Driver),
+                    ([driver, finalPosition]) => [driver, finalPosition]
+                )
+            );
+
+            const drivers = [...new Set(rows.map((d) => d.Driver))].sort((a, b) => d3.ascending(finalOrder.get(a), finalOrder.get(b)));
+
+            const series = d3.groups(rows, (d) => d.Driver).map(([driver, values]) => ({
+                driver,
+                team: values[0].Team,
+                finalPosition: d3.min(values, (d) => d.FinalPosition),
+                values: values.sort((a, b) => d3.ascending(a.LapNumber, b.LapNumber))
+            })).sort((a, b) => d3.ascending(a.finalPosition, b.finalPosition));
+
+            const rowsCount = Math.ceil(series.length / columns);
+            const panelWidth = (innerWidth - gapX * (columns - 1)) / columns;
+            const panelHeight = (innerHeight - gapY * (rowsCount - 1)) / rowsCount;
+
+            const x = d3.scaleLinear()
+                .domain(d3.extent(rows, (d) => d.LapNumber))
+                .nice()
+                .range([0, panelWidth]);
+
+            const y = d3.scaleLinear()
+                .domain(d3.extent(rows, (d) => d.LapTimeSec))
+                .nice()
+                .range([panelHeight, 0]);
+
+            const color = d3.scaleOrdinal()
+                .domain(drivers)
+                .range(d3.schemeDark2.slice(0, drivers.length));
+
+            const line = d3.line()
+                .curve(d3.curveMonotoneX)
+                .x((d) => x(d.LapNumber))
+                .y((d) => y(d.LapTimeSec));
+
+            const panels = chart.selectAll(".panel")
+                .data(series)
+                .enter()
+                .append("g")
+                .attr("class", "panel")
+                .attr("transform", (d, i) => {
+                    const column = i % columns;
+                    const row = Math.floor(i / columns);
+                    return `translate(${column * (panelWidth + gapX)},${row * (panelHeight + gapY)})`;
+                });
+
+            panels.append("rect")
+                .attr("width", panelWidth)
+                .attr("height", panelHeight)
+                .attr("fill", "none")
+                .attr("stroke", "#d9e2ec");
+
+            panels.append("g")
+                .attr("transform", `translate(0,${panelHeight})`)
+                .call(d3.axisBottom(x).ticks(6).tickFormat(d3.format("d")));
+
+            panels.append("g")
+                .call(d3.axisLeft(y).ticks(5));
+
+            panels.append("path")
+                .attr("fill", "none")
+                .attr("stroke", (d) => color(d.driver))
+                .attr("stroke-width", 2.25)
+                .attr("d", (d) => line(d.values));
+
+            panels.selectAll("circle")
+                .data((d) => d.values)
+                .enter()
+                .append("circle")
+                .attr("cx", (d) => x(d.LapNumber))
+                .attr("cy", (d) => y(d.LapTimeSec))
+                .attr("r", 2.8)
+                .attr("fill", (d) => color(d.Driver))
+                .on("mouseenter", (event, d) => {
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.Driver}</strong><br/>${d.Team}<br/>Lap ${d.LapNumber}<br/>Lap time: ${d.LapTimeSec.toFixed(3)} s<br/>Race position: P${d.Position}<br/>Compound: ${d.Compound}<br/>Tyre life: ${Number.isFinite(d.TyreLife) ? d.TyreLife.toFixed(0) : "N/A"} laps`);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseleave", () => tooltip.style("opacity", 0));
+
+            panels.append("text")
+                .attr("x", 0)
+                .attr("y", -12)
+                .attr("font-size", "13px")
+                .attr("font-weight", "bold")
+                .attr("fill", (d) => color(d.driver))
+                .text((d) => `${d.driver} (${d.team})`);
+
+            panels.append("text")
+                .attr("x", 0)
+                .attr("y", -28)
+                .attr("font-size", "12px")
+                .attr("fill", "#243b53")
+                .text((d) => `Final classification: P${d.finalPosition}`);
+
+            svg.append("text")
+                .attr("x", margin.left + innerWidth / 2)
+                .attr("y", height - 18)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "14px")
+                .text("Lap number");
+
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -(margin.top + innerHeight / 2))
+                .attr("y", 24)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "14px")
+                .text("Lap time (seconds)");
+
+            const legend = d3.legendColor()
+                .scale(color)
+                .title("Top six finishers")
+                .shapeWidth(28)
+                .shapeHeight(10)
+                .shapePadding(8);
+
+            svg.append("g")
+                .attr("transform", `translate(${width - 210}, ${margin.top + 10})`)
+                .call(legend);
+        });
+    </script>
+</body>
+</html>

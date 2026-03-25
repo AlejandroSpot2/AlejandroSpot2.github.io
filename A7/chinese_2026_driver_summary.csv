@@ -1,0 +1,23 @@
+Driver,FullName,Team,GridPosition,Position,Points,PositionsGained,Laps,LapsOnRecord,Status,AvgLapTimeSec,FastestLapTimeSec,AvgSpeedST
+ANT,Kimi Antonelli,Mercedes,1.0,1.0,25.0,0.0,56.0,56,Finished,97.73822222222223,95.275,303.5357142857143
+RUS,George Russell,Mercedes,2.0,2.0,18.0,0.0,56.0,56,Finished,98.87998181818182,95.4,311.8392857142857
+HAM,Lewis Hamilton,Ferrari,3.0,3.0,15.0,0.0,56.0,56,Finished,98.30650000000001,96.092,302.3392857142857
+LEC,Charles Leclerc,Ferrari,4.0,4.0,12.0,0.0,56.0,56,Finished,98.38122222222222,96.011,302.7857142857143
+BEA,Oliver Bearman,Haas F1 Team,10.0,5.0,10.0,5.0,56.0,56,Finished,100.01536363636365,96.429,302.75
+GAS,Pierre Gasly,Alpine,7.0,6.0,8.0,1.0,56.0,56,Finished,99.01,96.505,312.5357142857143
+LAW,Liam Lawson,Racing Bulls,14.0,7.0,6.0,7.0,56.0,56,Finished,101.360625,97.096,306.19642857142856
+HAD,Isack Hadjar,Red Bull Racing,9.0,8.0,4.0,1.0,56.0,56,Finished,100.51301818181818,97.311,312.375
+SAI,Carlos Sainz,Williams,17.0,9.0,2.0,8.0,55.0,55,Lapped,101.95054545454545,97.981,314.8727272727273
+COL,Franco Colapinto,Alpine,12.0,10.0,1.0,2.0,55.0,55,Lapped,101.06514814814815,96.783,307.43636363636364
+HUL,Nico Hulkenberg,Audi,11.0,11.0,0.0,0.0,55.0,55,Lapped,101.21961111111112,96.18,308.45454545454544
+LIN,Arvid Lindblad,Racing Bulls,15.0,12.0,0.0,3.0,55.0,55,Lapped,102.15336363636365,96.099,308.3818181818182
+BOT,Valtteri Bottas,Cadillac,19.0,13.0,0.0,6.0,55.0,55,Lapped,101.75892592592592,98.393,302.8545454545455
+OCO,Esteban Ocon,Haas F1 Team,13.0,14.0,0.0,-1.0,55.0,55,Lapped,102.94296363636364,95.964,302.54545454545456
+PER,Sergio Perez,Cadillac,21.0,15.0,0.0,6.0,55.0,55,Lapped,103.09541818181818,98.523,307.0
+VER,Max Verstappen,Red Bull Racing,8.0,16.0,0.0,-8.0,45.0,45,Retired,102.07795454545455,97.046,303.24444444444447
+ALO,Fernando Alonso,Aston Martin,18.0,17.0,0.0,1.0,32.0,32,Retired,106.23696875,99.721,296.5625
+STR,Lance Stroll,Aston Martin,20.0,18.0,0.0,2.0,9.0,10,Retired,102.21433333333333,100.883,309.1111111111111
+PIA,Oscar Piastri,McLaren,5.0,19.0,0.0,-14.0,0.0,1,Did not start,,,
+NOR,Lando Norris,McLaren,6.0,20.0,0.0,-14.0,0.0,1,Did not start,,,
+BOR,Gabriel Bortoleto,Audi,16.0,21.0,0.0,-5.0,0.0,1,Did not start,,,
+ALB,Alexander Albon,Williams,22.0,22.0,0.0,0.0,0.0,1,Did not start,,,
