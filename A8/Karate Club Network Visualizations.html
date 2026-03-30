@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Karate Club Network Visualizations</title>
+    <link rel="stylesheet" href="network_dashboard.css" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <h1 id="page-title">Loading...</h1>
+    <h3 id="page-subtitle">Force-directed node-link diagram and adjacency matrix</h3>
+    <p id="page-summary" class="page-intro"></p>
+    <p id="stats" class="stats"></p>
+    <p id="source" class="stats"></p>
+
+    <div class="controls">
+        <label for="bundle-slider"><strong>Edge bundling strength</strong></label>
+        <input id="bundle-slider" type="range" min="0" max="100" value="65" />
+        <span id="bundle-value">0.65</span>
+    </div>
+
+    <h3 class="panel-title">Node-link diagram</h3>
+    <svg id="node-link-chart"></svg>
+    <p class="legend-note">Hover nodes to inspect values and emphasize linked neighbors. Drag nodes to explore the structure manually.</p>
+
+    <h3 class="panel-title">Adjacency matrix</h3>
+    <svg id="matrix-chart"></svg>
+    <p class="legend-note">Hover any cell or label to highlight the corresponding row and column directions for easier reading.</p>
+
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        window.dashboardConfig = {
+            dataUrl: "karate_network.json",
+            subtitle: "A8: Zachary karate club network shown as a bundled node-link diagram and adjacency matrix",
+            nodeLinkHeight: 760,
+            matrixHeight: 980,
+            linkDistance: 74,
+            chargeStrength: -180,
+            maxNodeRadius: 13,
+            labelFontSize: 10
+        };
+    </script>
+    <script src="network_dashboard.js"></script>
+</body>
+</html>

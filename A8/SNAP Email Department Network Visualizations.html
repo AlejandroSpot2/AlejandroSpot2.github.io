@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>SNAP Email Department Network Visualizations</title>
+    <link rel="stylesheet" href="network_dashboard.css" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <h1 id="page-title">Loading...</h1>
+    <h3 id="page-subtitle">Force-directed node-link diagram and adjacency matrix</h3>
+    <p id="page-summary" class="page-intro"></p>
+    <p id="stats" class="stats"></p>
+    <p id="source" class="stats"></p>
+
+    <div class="controls">
+        <label for="bundle-slider"><strong>Edge bundling strength</strong></label>
+        <input id="bundle-slider" type="range" min="0" max="100" value="58" />
+        <span id="bundle-value">0.58</span>
+    </div>
+
+    <h3 class="panel-title">Node-link diagram</h3>
+    <svg id="node-link-chart"></svg>
+    <p class="legend-note">This dashboard uses the small Department 3 subset from SNAP so both encodings remain legible inside a single browser page.</p>
+
+    <h3 class="panel-title">Adjacency matrix</h3>
+    <svg id="matrix-chart"></svg>
+    <p class="legend-note">Temporal emails were aggregated into weighted undirected ties; darker cells indicate more repeated interactions.</p>
+
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        window.dashboardConfig = {
+            dataUrl: "snap_email_department_network.json",
+            subtitle: "A8 A+ extension: SNAP Email-Eu-Core Department 3 network using the same two coordinated encodings",
+            nodeLinkHeight: 860,
+            matrixHeight: 1220,
+            linkDistance: 48,
+            chargeStrength: -118,
+            maxNodeRadius: 10.5,
+            labelFontSize: 9
+        };
+    </script>
+    <script src="network_dashboard.js"></script>
+</body>
+</html>
