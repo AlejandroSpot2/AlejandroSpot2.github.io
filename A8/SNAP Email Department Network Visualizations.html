@@ -3,40 +3,45 @@
 <head>
     <meta charset="UTF-8" />
     <title>SNAP Email Department Network Visualizations</title>
-    <link rel="stylesheet" href="network_dashboard.css" />
     <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
     <h1 id="page-title">Loading...</h1>
     <h3 id="page-subtitle">Force-directed node-link diagram and adjacency matrix</h3>
-    <p id="page-summary" class="page-intro"></p>
-    <p id="stats" class="stats"></p>
-    <p id="source" class="stats"></p>
+    <p id="page-summary"></p>
+    <p id="stats"></p>
+    <p id="source"></p>
 
-    <div class="controls">
-        <label for="bundle-slider"><strong>Edge bundling strength</strong></label>
+    <div>
+        <label for="bundle-slider"><strong>Node pull/push and bundling strength</strong></label>
         <input id="bundle-slider" type="range" min="0" max="100" value="58" />
         <span id="bundle-value">0.58</span>
     </div>
 
-    <h3 class="panel-title">Node-link diagram</h3>
+    <h3>Node-link diagram</h3>
     <svg id="node-link-chart"></svg>
-    <p class="legend-note">This dashboard uses the small Department 3 subset from SNAP so both encodings remain legible inside a single browser page.</p>
+    <p>This dashboard uses the small Department 3 subset from SNAP so both encodings remain legible inside a single browser page.</p>
 
-    <h3 class="panel-title">Adjacency matrix</h3>
+    <h3>Adjacency matrix</h3>
     <svg id="matrix-chart"></svg>
-    <p class="legend-note">Temporal emails were aggregated into weighted undirected ties; darker cells indicate more repeated interactions.</p>
+    <p>Temporal emails were aggregated into weighted undirected ties; darker cells indicate more repeated interactions.</p>
 
-    <div id="tooltip" class="tooltip"></div>
+    <div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
 
     <script>
         window.dashboardConfig = {
-            dataUrl: "snap_email_department_network.json",
+            datasetId: "snap-email-dept3",
+            nodesUrl: "snap_email_department_nodes.csv",
+            linksUrl: "snap_email_department_links.csv",
+            title: "SNAP Email-Eu-Core Department 3 Network",
             subtitle: "A8 A+ extension: SNAP Email-Eu-Core Department 3 network using the same two coordinated encodings",
+            notes: "The SNAP temporal email file was aggregated into CSV node and weighted edge tables for the force-directed layout and adjacency matrix.",
+            sourceName: "SNAP: email-Eu-core-temporal-Dept3",
+            sourceUrl: "https://snap.stanford.edu/data/email-Eu-core-temporal.html",
             nodeLinkHeight: 860,
             matrixHeight: 1220,
             linkDistance: 48,
-            chargeStrength: -118,
+            maxChargeStrength: -140,
             maxNodeRadius: 10.5,
             labelFontSize: 9
         };

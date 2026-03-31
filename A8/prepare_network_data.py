@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import gzip
 import json
 from collections import defaultdict
@@ -156,34 +157,50 @@ def write_payload(filename: str, payload: dict) -> None:
     print(f"Wrote {output_path}")
 
 
+def write_csvs(nodes_filename: str, links_filename: str, payload: dict) -> None:
+    nodes_path = ROOT / nodes_filename
+    links_path = ROOT / links_filename
+
+    with nodes_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["id", "label", "degree", "weightedDegree", "community", "matrixOrder"])
+        writer.writeheader()
+        writer.writerows(payload["nodes"])
+
+    with links_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["source", "target", "weight"])
+        writer.writeheader()
+        writer.writerows(payload["links"])
+
+    print(f"Wrote {nodes_path}")
+    print(f"Wrote {links_path}")
+
+
 def main() -> None:
     karate_graph = load_karate_graph()
-    write_payload(
-        "karate_network.json",
-        graph_to_payload(
-            karate_graph,
-            dataset_id="karate",
-            title="Zachary Karate Club Network",
-            subtitle="Friendship network of 34 karate club members",
-            source_name="Network Repository: soc-karate",
-            source_url="https://networkrepository.com/soc-karate.php",
-            notes="Matrix Market source converted into an undirected network for force-directed and adjacency-matrix views.",
-        ),
+    karate_payload = graph_to_payload(
+        karate_graph,
+        dataset_id="karate",
+        title="Zachary Karate Club Network",
+        subtitle="Friendship network of 34 karate club members",
+        source_name="Network Repository: soc-karate",
+        source_url="https://networkrepository.com/soc-karate.php",
+        notes="Matrix Market source converted into CSV node and edge tables for the force-directed and adjacency-matrix views.",
     )
+    write_payload("karate_network.json", karate_payload)
+    write_csvs("karate_nodes.csv", "karate_links.csv", karate_payload)
 
     snap_graph = load_snap_department_graph()
-    write_payload(
-        "snap_email_department_network.json",
-        graph_to_payload(
-            snap_graph,
-            dataset_id="snap-email-dept3",
-            title="SNAP Email-Eu-Core Department 3 Network",
-            subtitle="Department-level email interactions from the Stanford Large Network Dataset Collection",
-            source_name="SNAP: email-Eu-core-temporal-Dept3",
-            source_url="https://snap.stanford.edu/data/email-Eu-core-temporal.html",
-            notes="Temporal emails were aggregated into a weighted undirected network so both visual encodings stay readable in a browser.",
-        ),
+    snap_payload = graph_to_payload(
+        snap_graph,
+        dataset_id="snap-email-dept3",
+        title="SNAP Email-Eu-Core Department 3 Network",
+        subtitle="Department-level email interactions from the Stanford Large Network Dataset Collection",
+        source_name="SNAP: email-Eu-core-temporal-Dept3",
+        source_url="https://snap.stanford.edu/data/email-Eu-core-temporal.html",
+        notes="Temporal emails were aggregated into weighted undirected CSV node and edge tables so both visual encodings stay readable in a browser.",
     )
+    write_payload("snap_email_department_network.json", snap_payload)
+    write_csvs("snap_email_department_nodes.csv", "snap_email_department_links.csv", snap_payload)
 
 
 if __name__ == "__main__":

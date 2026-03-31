@@ -4,7 +4,7 @@
   "subtitle": "Department-level email interactions from the Stanford Large Network Dataset Collection",
   "sourceName": "SNAP: email-Eu-core-temporal-Dept3",
   "sourceUrl": "https://snap.stanford.edu/data/email-Eu-core-temporal.html",
-  "notes": "Temporal emails were aggregated into a weighted undirected network so both visual encodings stay readable in a browser.",
+  "notes": "Temporal emails were aggregated into weighted undirected CSV node and edge tables so both visual encodings stay readable in a browser.",
   "directed": false,
   "stats": {
     "nodeCount": 89,

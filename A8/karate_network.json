@@ -4,7 +4,7 @@
   "subtitle": "Friendship network of 34 karate club members",
   "sourceName": "Network Repository: soc-karate",
   "sourceUrl": "https://networkrepository.com/soc-karate.php",
-  "notes": "Matrix Market source converted into an undirected network for force-directed and adjacency-matrix views.",
+  "notes": "Matrix Market source converted into CSV node and edge tables for the force-directed and adjacency-matrix views.",
   "directed": false,
   "stats": {
     "nodeCount": 34,

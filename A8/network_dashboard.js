@@ -27,32 +27,42 @@
         .attr("width", matrixWidth)
         .attr("height", matrixHeight);
 
-    d3.json(config.dataUrl).then((graph) => {
-        pageTitle.textContent = graph.title;
-        pageSubtitle.textContent = config.subtitle || graph.subtitle;
-        pageSummary.textContent = graph.notes;
-        stats.textContent = `Nodes: ${graph.stats.nodeCount} | Edges: ${graph.stats.edgeCount} | Density: ${graph.stats.density} | Communities: ${graph.stats.communityCount}`;
-        source.innerHTML = `Source: <a href="${graph.sourceUrl}" target="_blank" rel="noreferrer">${graph.sourceName}</a>`;
+    Promise.all([
+        d3.csv(config.nodesUrl, (d) => ({
+            id: +d.id,
+            label: d.label,
+            degree: +d.degree,
+            weightedDegree: +d.weightedDegree,
+            community: +d.community,
+            matrixOrder: +d.matrixOrder
+        })),
+        d3.csv(config.linksUrl, (d) => ({
+            source: +d.source,
+            target: +d.target,
+            weight: +d.weight
+        }))
+    ]).then(([nodes, links]) => {
+        const communityCount = new Set(nodes.map((node) => node.community)).size;
+        const density = nodes.length > 1 ? (2 * links.length) / (nodes.length * (nodes.length - 1)) : 0;
+        const communitySizes = d3.rollup(nodes, (values) => values.length, (node) => node.community);
 
-        renderNodeLink(graph);
+        pageTitle.textContent = config.title;
+        pageSubtitle.textContent = config.subtitle;
+        pageSummary.textContent = config.notes;
+        stats.textContent = `Nodes: ${nodes.length} | Edges: ${links.length} | Density: ${density.toFixed(4)} | Communities: ${communityCount} | Largest community: ${d3.max(communitySizes.values())}`;
+        source.innerHTML = `Source: <a href="${config.sourceUrl}" target="_blank" rel="noreferrer">${config.sourceName}</a>`;
+
+        const graph = { nodes, links, datasetId: config.datasetId };
         renderMatrix(graph);
+        renderNodeLink(graph);
     });
 
     function renderNodeLink(graph) {
         const margin = { top: 20, right: 210, bottom: 20, left: 20 };
         const innerWidth = nodeLinkWidth - margin.left - margin.right;
         const innerHeight = nodeLinkHeight - margin.top - margin.bottom;
-
         const chart = nodeLinkSvg.append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
-
-        const bounds = chart.append("rect")
-            .attr("width", innerWidth)
-            .attr("height", innerHeight)
-            .attr("fill", "#f8fbff")
-            .attr("stroke", "#e6edf5");
-
-        void bounds;
 
         const communities = [...new Set(graph.nodes.map((node) => node.community))].sort(d3.ascending);
         const color = d3.scaleOrdinal()
@@ -98,8 +108,8 @@
             row.append("rect")
                 .attr("width", 14)
                 .attr("height", 14)
-                .attr("rx", 3)
-                .attr("fill", color(community));
+                .attr("fill", color(community))
+                .attr("stroke", "#000");
 
             row.append("text")
                 .attr("x", 22)
@@ -109,20 +119,20 @@
         });
 
         nodeLinkSvg.append("text")
-            .attr("x", 28)
-            .attr("y", 26)
+            .attr("x", 20)
+            .attr("y", 24)
             .attr("font-size", "15px")
             .attr("font-weight", "bold")
-            .text("Force-directed node-link diagram with adjustable edge bundling");
+            .text("Force-directed node-link diagram");
 
         const linkSelection = linkGroup.selectAll("path")
             .data(links)
             .enter()
             .append("path")
             .attr("fill", "none")
-            .attr("stroke", "#94a3b8")
+            .attr("stroke", "#999")
             .attr("stroke-linecap", "round")
-            .attr("stroke-opacity", 0.42)
+            .attr("stroke-opacity", 0.45)
             .attr("stroke-width", (link) => strokeWidth(link.weight));
 
         const nodeSelection = nodeGroup.selectAll("circle")
@@ -131,9 +141,8 @@
             .append("circle")
             .attr("r", (node) => radius(node.degree))
             .attr("fill", (node) => color(node.community))
-            .attr("stroke", "#1f2933")
-            .attr("stroke-width", 0.9)
-            .call(drag(simulation()));
+            .attr("stroke", "#000")
+            .attr("stroke-width", 0.9);
 
         const labelSelection = labelGroup.selectAll("text")
             .data(nodes)
@@ -142,61 +151,70 @@
             .attr("font-size", config.labelFontSize || 10)
             .attr("dx", 9)
             .attr("dy", 3)
-            .attr("fill", "#334e68")
             .text((node) => node.id);
 
-        let activeNodeId = null;
+        const baseLinkDistance = config.linkDistance || (nodes.length > 60 ? 48 : 70);
+        const linkDistanceScale = d3.scaleLinear().domain([0, 1]).range([baseLinkDistance * 1.45, baseLinkDistance * 0.72]);
+        const linkStrengthScale = d3.scaleLinear().domain([0, 1]).range([0.08, config.maxLinkStrength || 0.52]);
+        const chargeStrengthScale = d3.scaleLinear().domain([0, 1]).range([config.minChargeStrength || -40, config.maxChargeStrength || -220]);
+
+        const linkForce = d3.forceLink(links)
+            .id((node) => node.id)
+            .distance(linkDistanceScale(+slider.value / 100))
+            .strength(linkStrengthScale(+slider.value / 100));
+
+        const chargeForce = d3.forceManyBody()
+            .strength(chargeStrengthScale(+slider.value / 100));
+
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", linkForce)
+            .force("charge", chargeForce)
+            .force("center", d3.forceCenter(innerWidth / 2, innerHeight / 2))
+            .force("collision", d3.forceCollide().radius((node) => radius(node.degree) + 5))
+            .force("x", d3.forceX(innerWidth / 2).strength(0.03))
+            .force("y", d3.forceY(innerHeight / 2).strength(0.03));
+
+        nodeSelection.call(drag(simulation));
+
         let bundleStrength = +slider.value / 100;
         sliderValue.textContent = bundleStrength.toFixed(2);
 
         slider.addEventListener("input", (event) => {
             bundleStrength = +event.target.value / 100;
             sliderValue.textContent = bundleStrength.toFixed(2);
+            linkForce.distance(linkDistanceScale(bundleStrength));
+            linkForce.strength(linkStrengthScale(bundleStrength));
+            chargeForce.strength(chargeStrengthScale(bundleStrength));
+            simulation.alpha(0.7).restart();
+            updateLinks();
+        });
+
+        simulation.on("tick", () => {
+            nodeSelection
+                .attr("cx", (node) => node.x)
+                .attr("cy", (node) => node.y);
+
+            labelSelection
+                .attr("x", (node) => node.x)
+                .attr("y", (node) => node.y);
+
             updateLinks();
         });
 
         nodeSelection
             .on("mouseenter", (event, node) => {
-                activeNodeId = node.id;
                 tooltip.style("opacity", 1)
                     .html(`<strong>${node.label}</strong><br/>ID: ${node.id}<br/>Community: ${node.community}<br/>Degree: ${node.degree}<br/>Weighted degree: ${node.weightedDegree.toFixed(0)}`);
+                moveTooltip(event);
                 applyNodeHighlight(node.id);
-                updateMatrixHighlight(node.id);
+                window.updateMatrixHighlight(node.id);
             })
             .on("mousemove", moveTooltip)
             .on("mouseleave", () => {
                 tooltip.style("opacity", 0);
-                activeNodeId = null;
                 clearNodeHighlight();
-                clearMatrixHighlight();
+                window.clearMatrixHighlight();
             });
-
-        function simulation() {
-            const force = d3.forceSimulation(nodes)
-                .force("link", d3.forceLink(links)
-                    .id((node) => node.id)
-                    .distance(config.linkDistance || (graph.stats.nodeCount > 60 ? 46 : 70))
-                    .strength(0.42))
-                .force("charge", d3.forceManyBody().strength(config.chargeStrength || (graph.stats.nodeCount > 60 ? -110 : -170)))
-                .force("center", d3.forceCenter(innerWidth / 2, innerHeight / 2))
-                .force("collision", d3.forceCollide().radius((node) => radius(node.degree) + 5))
-                .force("x", d3.forceX(innerWidth / 2).strength(0.03))
-                .force("y", d3.forceY(innerHeight / 2).strength(0.03));
-
-            force.on("tick", () => {
-                nodeSelection
-                    .attr("cx", (node) => node.x)
-                    .attr("cy", (node) => node.y);
-
-                labelSelection
-                    .attr("x", (node) => node.x)
-                    .attr("y", (node) => node.y);
-
-                updateLinks();
-            });
-
-            return force;
-        }
 
         function updateLinks() {
             const communityCentroids = new Map();
@@ -204,13 +222,13 @@
                 const members = nodes.filter((node) => node.community === community);
                 communityCentroids.set(community, {
                     x: d3.mean(members, (node) => node.x ?? innerWidth / 2),
-                    y: d3.mean(members, (node) => node.y ?? innerHeight / 2),
+                    y: d3.mean(members, (node) => node.y ?? innerHeight / 2)
                 });
             });
 
             const graphCenter = {
                 x: d3.mean(nodes, (node) => node.x ?? innerWidth / 2),
-                y: d3.mean(nodes, (node) => node.y ?? innerHeight / 2),
+                y: d3.mean(nodes, (node) => node.y ?? innerHeight / 2)
             };
 
             linkSelection.attr("d", (link) => {
@@ -223,14 +241,14 @@
                     ? [
                         [sourceNode.x, sourceNode.y],
                         bundlePoint(sourceNode, targetNode, sourceCentroid, 0.5, bundleStrength),
-                        [targetNode.x, targetNode.y],
+                        [targetNode.x, targetNode.y]
                     ]
                     : [
                         [sourceNode.x, sourceNode.y],
                         bundlePoint(sourceNode, targetNode, sourceCentroid, 0.3, bundleStrength),
                         blendPoint(midpoint(sourceNode, targetNode), graphCenter, bundleStrength * 0.82),
                         bundlePoint(targetNode, sourceNode, targetCentroid, 0.3, bundleStrength),
-                        [targetNode.x, targetNode.y],
+                        [targetNode.x, targetNode.y]
                     ];
 
                 return d3.line()
@@ -250,8 +268,8 @@
                 .attr("font-weight", (node) => node.id === nodeId ? "bold" : "normal");
 
             linkSelection
-                .attr("stroke", (link) => resolveId(link.source) === nodeId || resolveId(link.target) === nodeId ? "#0f172a" : "#cbd5e1")
-                .attr("stroke-opacity", (link) => resolveId(link.source) === nodeId || resolveId(link.target) === nodeId ? 0.9 : 0.12);
+                .attr("stroke", (link) => resolveId(link.source) === nodeId || resolveId(link.target) === nodeId ? "#000" : "#ccc")
+                .attr("stroke-opacity", (link) => resolveId(link.source) === nodeId || resolveId(link.target) === nodeId ? 0.95 : 0.14);
         }
 
         function clearNodeHighlight() {
@@ -264,8 +282,8 @@
                 .attr("font-weight", "normal");
 
             linkSelection
-                .attr("stroke", "#94a3b8")
-                .attr("stroke-opacity", 0.42);
+                .attr("stroke", "#999")
+                .attr("stroke-opacity", 0.45);
         }
 
         function drag(force) {
@@ -303,14 +321,14 @@
         function blendPoint(pointA, pointB, amount) {
             return [
                 pointA[0] + (pointB.x - pointA[0]) * amount,
-                pointA[1] + (pointB.y - pointA[1]) * amount,
+                pointA[1] + (pointB.y - pointA[1]) * amount
             ];
         }
 
         function bundlePoint(sourceNode, targetNode, centroid, proportion, amount) {
             const basePoint = [
                 sourceNode.x + (targetNode.x - sourceNode.x) * proportion,
-                sourceNode.y + (targetNode.y - sourceNode.y) * proportion,
+                sourceNode.y + (targetNode.y - sourceNode.y) * proportion
             ];
             return blendPoint(basePoint, centroid, amount * 0.92);
         }
@@ -322,27 +340,21 @@
         function resolveId(endpoint) {
             return typeof endpoint === "object" ? endpoint.id : endpoint;
         }
-
-        function moveTooltip(event) {
-            tooltip.style("left", `${event.pageX + 12}px`)
-                .style("top", `${event.pageY + 12}px`);
-        }
     }
 
     function renderMatrix(graph) {
         const margin = { top: 130, right: 34, bottom: 34, left: 130 };
         const innerWidth = matrixWidth - margin.left - margin.right;
         const innerHeight = matrixHeight - margin.top - margin.bottom;
-
         const chart = matrixSvg.append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
         matrixSvg.append("text")
-            .attr("x", 28)
-            .attr("y", 30)
+            .attr("x", 20)
+            .attr("y", 24)
             .attr("font-size", "15px")
             .attr("font-weight", "bold")
-            .text("Adjacency matrix with row and column highlighting");
+            .text("Adjacency matrix");
 
         const nodes = [...graph.nodes].sort((a, b) => d3.ascending(a.matrixOrder, b.matrixOrder));
         const nodeIds = nodes.map((node) => node.id);
@@ -360,10 +372,7 @@
         const matrixSide = cellSize * nodeIds.length;
         const x = d3.scaleBand().domain(nodeIds).range([0, matrixSide]);
         const y = d3.scaleBand().domain(nodeIds).range([0, matrixSide]);
-
-        const color = d3.scaleSequential()
-            .domain([0, maxWeight || 1])
-            .interpolator(d3.interpolateBlues);
+        const color = d3.scaleSequential().domain([0, maxWeight || 1]).interpolator(d3.interpolateBlues);
 
         const cells = [];
         nodeIds.forEach((rowId) => {
@@ -371,7 +380,7 @@
                 cells.push({
                     rowId,
                     columnId,
-                    weight: weightLookup.get(`${rowId}|${columnId}`) || 0,
+                    weight: weightLookup.get(`${rowId}|${columnId}`) || 0
                 });
             });
         });
@@ -387,8 +396,8 @@
         chart.append("rect")
             .attr("width", matrixSide)
             .attr("height", matrixSide)
-            .attr("fill", "#ffffff")
-            .attr("stroke", "#d9e2ec");
+            .attr("fill", "#fff")
+            .attr("stroke", "#000");
 
         const cellSelection = chart.append("g")
             .selectAll("rect")
@@ -399,8 +408,8 @@
             .attr("y", (cell) => y(cell.rowId))
             .attr("width", cellSize)
             .attr("height", cellSize)
-            .attr("fill", (cell) => cell.weight > 0 ? color(cell.weight) : "#f8fafc")
-            .attr("stroke", "#e5edf5")
+            .attr("fill", (cell) => cell.weight > 0 ? color(cell.weight) : "#fff")
+            .attr("stroke", "#ddd")
             .attr("stroke-width", 0.35)
             .on("mouseenter", (event, cell) => {
                 tooltip.style("opacity", 1)
@@ -424,7 +433,6 @@
             .attr("dy", "0.32em")
             .attr("text-anchor", "end")
             .attr("font-size", cellSize < 11 ? 8 : 10)
-            .attr("fill", "#243b53")
             .text((node) => node.id)
             .on("mouseenter", (event, node) => {
                 tooltip.style("opacity", 1)
@@ -446,7 +454,6 @@
             .attr("transform", (node) => `translate(${x(node.id) + cellSize / 2}, -10) rotate(-45)`)
             .attr("text-anchor", "start")
             .attr("font-size", cellSize < 11 ? 8 : 10)
-            .attr("fill", "#243b53")
             .text((node) => node.id)
             .on("mouseenter", (event, node) => {
                 tooltip.style("opacity", 1)
@@ -476,7 +483,7 @@
             .attr("x2", matrixSide)
             .attr("y1", (breakIndex) => breakIndex * cellSize)
             .attr("y2", (breakIndex) => breakIndex * cellSize)
-            .attr("stroke", "#334e68")
+            .attr("stroke", "#000")
             .attr("stroke-width", 1.1);
 
         chart.append("g")
@@ -488,7 +495,7 @@
             .attr("y2", matrixSide)
             .attr("x1", (breakIndex) => breakIndex * cellSize)
             .attr("x2", (breakIndex) => breakIndex * cellSize)
-            .attr("stroke", "#334e68")
+            .attr("stroke", "#000")
             .attr("stroke-width", 1.1);
 
         matrixSvg.append("text")
@@ -509,11 +516,8 @@
         const legendWidth = 180;
         const legendHeight = 12;
         const legendX = matrixWidth - 250;
-        const legendY = 42;
-        const legendScale = d3.scaleLinear()
-            .domain([0, maxWeight || 1])
-            .range([0, legendWidth]);
-
+        const legendY = 40;
+        const legendScale = d3.scaleLinear().domain([0, maxWeight || 1]).range([0, legendWidth]);
         const legendGradient = matrixSvg.append("defs")
             .append("linearGradient")
             .attr("id", `${graph.datasetId}-matrix-gradient`);
@@ -530,7 +534,7 @@
             .attr("width", legendWidth)
             .attr("height", legendHeight)
             .attr("fill", `url(#${graph.datasetId}-matrix-gradient)`)
-            .attr("stroke", "#cbd2d9");
+            .attr("stroke", "#000");
 
         matrixSvg.append("g")
             .attr("transform", `translate(${legendX}, ${legendY + legendHeight})`)
@@ -558,29 +562,22 @@
                 .attr("opacity", 0.16);
 
             rowLabels
-                .attr("font-weight", (node) => node.id === rowId ? "bold" : "normal")
-                .attr("fill", (node) => node.id === rowId ? "#7c2d12" : "#243b53");
+                .attr("font-weight", (node) => node.id === rowId ? "bold" : "normal");
 
             columnLabels
-                .attr("font-weight", (node) => node.id === columnId ? "bold" : "normal")
-                .attr("fill", (node) => node.id === columnId ? "#7c2d12" : "#243b53");
+                .attr("font-weight", (node) => node.id === columnId ? "bold" : "normal");
 
             cellSelection
-                .attr("stroke", (cell) => cell.rowId === rowId || cell.columnId === columnId ? "#9a3412" : "#e5edf5")
+                .attr("stroke", (cell) => cell.rowId === rowId || cell.columnId === columnId ? "#000" : "#ddd")
                 .attr("stroke-width", (cell) => cell.rowId === rowId || cell.columnId === columnId ? 0.9 : 0.35);
         }
 
         function clearMatrixHighlight() {
             rowHighlight.attr("opacity", 0);
             columnHighlight.attr("opacity", 0);
-            rowLabels.attr("font-weight", "normal").attr("fill", "#243b53");
-            columnLabels.attr("font-weight", "normal").attr("fill", "#243b53");
-            cellSelection.attr("stroke", "#e5edf5").attr("stroke-width", 0.35);
-        }
-
-        function moveTooltip(event) {
-            tooltip.style("left", `${event.pageX + 12}px`)
-                .style("top", `${event.pageY + 12}px`);
+            rowLabels.attr("font-weight", "normal");
+            columnLabels.attr("font-weight", "normal");
+            cellSelection.attr("stroke", "#ddd").attr("stroke-width", 0.35);
         }
 
         window.updateMatrixHighlight = function (nodeId) {
@@ -590,5 +587,10 @@
         window.clearMatrixHighlight = function () {
             clearMatrixHighlight();
         };
+    }
+
+    function moveTooltip(event) {
+        tooltip.style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY + 10}px`);
     }
 })();
