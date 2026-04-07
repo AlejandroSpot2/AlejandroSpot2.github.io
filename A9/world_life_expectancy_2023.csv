@@ -1,0 +1,168 @@
+iso3,country_name,life_expectancy
+AFG,Afghanistan,66.035
+ALB,Albania,79.602
+DZA,Algeria,76.261
+AGO,Angola,64.617
+ARG,Argentina,77.395
+ARM,Armenia,77.4658536585366
+AUS,Australia,83.0512195121951
+AUT,Austria,81.5414634146342
+AZE,Azerbaijan,74.429
+BHS,"Bahamas, The",74.552
+BGD,Bangladesh,74.672
+BLR,Belarus,74.1837804878049
+BEL,Belgium,82.3975609756098
+BLZ,Belize,73.566
+BEN,Benin,60.774
+BTN,Bhutan,72.975
+BOL,Bolivia,68.581
+BIH,Bosnia and Herzegovina,77.85
+BWA,Botswana,69.163
+BRA,Brazil,75.848
+BRN,Brunei Darussalam,75.327
+BGR,Bulgaria,75.7073170731707
+BFA,Burkina Faso,61.092
+BDI,Burundi,63.651
+KHM,Cambodia,70.668
+CMR,Cameroon,63.7
+CAN,Canada,81.6465853658537
+CAF,Central African Republic,57.408
+TCD,Chad,55.069
+CHL,Chile,81.167
+CHN,China,77.953
+COL,Colombia,77.725
+COD,"Congo, Dem. Rep.",61.895
+COG,"Congo, Rep.",65.772
+CRI,Costa Rica,80.799
+CIV,Cote d'Ivoire,61.944
+HRV,Croatia,78.4731707317073
+CUB,Cuba,78.085
+CYP,Cyprus,81.648
+CZE,Czechia,79.8780487804878
+DNK,Denmark,81.8536585365854
+DJI,Djibouti,65.987
+DOM,Dominican Republic,73.72
+ECU,Ecuador,77.392
+EGY,"Egypt, Arab Rep.",71.633
+SLV,El Salvador,72.099
+GNQ,Equatorial Guinea,63.707
+ERI,Eritrea,68.624
+EST,Estonia,78.490243902439
+SWZ,Eswatini,64.123
+ETH,Ethiopia,67.315
+FJI,Fiji,67.316
+FIN,Finland,81.6853658536585
+GAB,Gabon,68.337
+GMB,"Gambia, The",65.86
+GEO,Georgia,74.496
+DEU,Germany,80.5414634146342
+GHA,Ghana,65.498
+GRC,Greece,81.5365853658537
+GRL,Greenland,71.549756097561
+GTM,Guatemala,72.602
+GIN,Guinea,60.74
+GNB,Guinea-Bissau,64.085
+GUY,Guyana,70.18
+HTI,Haiti,64.936
+HND,Honduras,72.884
+HUN,Hungary,76.7707317073171
+ISL,Iceland,82.6073170731707
+IND,India,72.003
+IDN,Indonesia,71.146
+IRN,"Iran, Islamic Rep.",77.654
+IRQ,Iraq,72.324
+IRL,Ireland,82.8609756097561
+ISR,Israel,83.1951219512195
+ITA,Italy,83.7
+JAM,Jamaica,71.479
+JPN,Japan,84.0412195121951
+JOR,Jordan,77.814
+KAZ,Kazakhstan,74.402
+KEN,Kenya,63.646
+PRK,"Korea, Dem. People's Rep.",73.642
+KOR,"Korea, Rep.",83.4292682926829
+KWT,Kuwait,83.1878048780488
+KGZ,Kyrgyz Republic,72.2487804878049
+LAO,Lao PDR,68.964
+LVA,Latvia,75.6780487804878
+LBN,Lebanon,77.817
+LSO,Lesotho,57.375
+LBR,Liberia,62.163
+LBY,Libya,69.339
+LTU,Lithuania,76.9878048780488
+LUX,Luxembourg,83.3585365853659
+MDG,Madagascar,63.632
+MWI,Malawi,67.353
+MYS,Malaysia,76.657
+MLI,Mali,60.439
+MRT,Mauritania,68.484
+MEX,Mexico,75.069
+MDA,Moldova,71.198
+MNG,Mongolia,72.1224390243902
+MNE,Montenegro,77.5878048780488
+MAR,Morocco,75.313
+MOZ,Mozambique,63.611
+MMR,Myanmar,66.889
+NAM,Namibia,67.385
+NPL,Nepal,70.354
+NLD,Netherlands,81.9146341463415
+NCL,New Caledonia,78.766
+NZL,New Zealand,83.0048780487805
+NIC,Nicaragua,74.947
+NER,Niger,61.183
+NGA,Nigeria,54.462
+MKD,North Macedonia,75.3160975609756
+OMN,Oman,80.031
+PAK,Pakistan,67.649
+PAN,Panama,79.594
+PNG,Papua New Guinea,66.134
+PRY,Paraguay,73.844
+PER,Peru,77.74
+PHL,Philippines,69.833
+POL,Poland,78.5073170731707
+PRT,Portugal,82.2804878048781
+PRI,Puerto Rico (US),81.69
+QAT,Qatar,82.368
+ROU,Romania,76.6073170731707
+RUS,Russian Federation,73.2546341463415
+RWA,Rwanda,67.785
+SAU,Saudi Arabia,78.732
+SEN,Senegal,68.683
+SRB,Serbia,76.2209756097561
+SLE,Sierra Leone,61.786
+SVK,Slovak Republic,78.0170731707317
+SVN,Slovenia,81.9780487804878
+SLB,Solomon Islands,70.528
+SOM,"Somalia, Fed. Rep.",58.816
+ZAF,South Africa,66.139
+SSD,South Sudan,57.617
+ESP,Spain,83.8829268292683
+LKA,Sri Lanka,77.483
+SDN,Sudan,66.331
+SUR,Suriname,73.631
+SWE,Sweden,83.309756097561
+CHE,Switzerland,84.0560975609756
+SYR,Syrian Arab Republic,72.12
+TJK,Tajikistan,71.79
+TZA,Tanzania,66.995
+THA,Thailand,76.412
+TLS,Timor-Leste,67.689
+TGO,Togo,62.739
+TTO,Trinidad and Tobago,73.49
+TUN,Tunisia,76.508
+TUR,Turkiye,77.156
+TKM,Turkmenistan,70.073
+UGA,Uganda,68.252
+UKR,Ukraine,73.422
+ARE,United Arab Emirates,82.909
+GBR,United Kingdom,81.2380975609756
+USA,United States,78.3853658536585
+URY,Uruguay,78.138
+UZB,Uzbekistan,72.388
+VUT,Vanuatu,71.477
+VEN,"Venezuela, RB",72.514
+VNM,Viet Nam,74.588
+PSE,West Bank and Gaza,65.17
+YEM,"Yemen, Rep.",69.295
+ZMB,Zambia,66.349
+ZWE,Zimbabwe,62.775

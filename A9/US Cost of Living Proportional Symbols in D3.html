@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>US Cost of Living Proportional Symbols in D3</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+</head>
+<body>
+    <h1>United States Cost of Living, 2025</h1>
+    <h3>Proportional Symbols Map: housing cost index by state centroid</h3>
+    <p>The symbol size encodes the housing cost index from the MERIC annual cost of living table. The top 10 most expensive states by overall composite cost index are highlighted in a different color and include tooltips.</p>
+    <p>Source data: <a href="https://meric.mo.gov/data/cost-living-data-series">MERIC cost of living data series</a>, <a href="https://developers.google.com/public-data/docs/canonical/states_csv">Google state centroid coordinates</a>, and <a href="https://github.com/topojson/us-atlas">us-atlas state boundaries</a>.</p>
+    <svg id="chart" style="display:block;"></svg>
+    <div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
+
+    <script>
+        // References: D3 documentation https://d3js.org/ and the assignment instructions.
+        const width = 1280;
+        const height = 820;
+        const margin = { top: 24, right: 260, bottom: 24, left: 20 };
+        const excludedStateIds = new Set(["60", "66", "69", "72", "78"]);
+
+        const svg = d3.select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+        const tooltip = d3.select("#tooltip");
+
+        Promise.all([
+            d3.json("us-states-10m.json"),
+            d3.csv("state_cost_of_living_2025.csv", (d) => ({
+                costRank: +d.cost_rank,
+                expensiveRank: +d.expensive_rank,
+                stateName: d.state_name,
+                stateAbbr: d.state_abbr,
+                costIndex: +d.cost_index,
+                groceryCost: +d.grocery_cost,
+                housingCost: +d.housing_cost,
+                utilitiesCost: +d.utilities_cost,
+                transportationCost: +d.transportation_cost,
+                healthCost: +d.health_cost,
+                miscCost: +d.misc_cost,
+                latitude: +d.latitude,
+                longitude: +d.longitude,
+                isTopTenExpensive: d.is_top_ten_expensive === "True"
+            }))
+        ]).then(([us, rows]) => {
+            const states = {
+                type: "FeatureCollection",
+                features: topojson.feature(us, us.objects.states).features.filter((feature) => !excludedStateIds.has(feature.id))
+            };
+            const projection = d3.geoAlbersUsa().fitSize(
+                [width - margin.left - margin.right, height - margin.top - margin.bottom],
+                states
+            );
+            const path = d3.geoPath(projection);
+            const radius = d3.scaleSqrt()
+                .domain(d3.extent(rows, (row) => row.housingCost))
+                .range([4, 28]);
+
+            const chart = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            chart.selectAll(".state")
+                .data(states.features)
+                .enter()
+                .append("path")
+                .attr("class", "state")
+                .attr("d", path)
+                .attr("fill", "#f5f5f4")
+                .attr("stroke", "#6b7280")
+                .attr("stroke-width", 0.8);
+
+            const circles = chart.append("g")
+                .selectAll("circle")
+                .data(rows.slice().sort((a, b) => d3.descending(a.housingCost, b.housingCost)))
+                .enter()
+                .append("circle")
+                .attr("cx", (row) => projection([row.longitude, row.latitude])[0])
+                .attr("cy", (row) => projection([row.longitude, row.latitude])[1])
+                .attr("r", (row) => radius(row.housingCost))
+                .attr("fill", (row) => row.isTopTenExpensive ? "#c2410c" : "#475569")
+                .attr("fill-opacity", 0.7)
+                .attr("stroke", "#111111")
+                .attr("stroke-width", 0.9)
+                .on("mouseenter", function (event, row) {
+                    d3.select(this)
+                        .raise()
+                        .attr("stroke-width", 1.8);
+
+                    tooltip.style("opacity", 1)
+                        .html(
+                            `<strong>${row.stateName}</strong><br/>Composite cost index: ${row.costIndex.toFixed(1)}<br/>Housing cost index: ${row.housingCost.toFixed(1)}<br/>Grocery cost index: ${row.groceryCost.toFixed(1)}<br/>Utilities cost index: ${row.utilitiesCost.toFixed(1)}<br/>Transportation cost index: ${row.transportationCost.toFixed(1)}<br/>Most expensive rank: #${row.expensiveRank}`
+                        )
+                        .style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseleave", function () {
+                    tooltip.style("opacity", 0);
+                    d3.select(this).attr("stroke-width", 0.9);
+                });
+
+            const sizeLegendValues = [100, 175, 250].filter((value) => value <= d3.max(rows, (row) => row.housingCost));
+            const sizeLegend = svg.append("g")
+                .attr("transform", `translate(${width - 200}, 110)`);
+
+            sizeLegend.append("text")
+                .attr("font-size", "13px")
+                .attr("font-weight", "bold")
+                .text("Circle size");
+
+            sizeLegend.append("text")
+                .attr("y", 16)
+                .attr("font-size", "12px")
+                .text("Housing cost index");
+
+            sizeLegendValues.forEach((value, index) => {
+                const row = sizeLegend.append("g")
+                    .attr("transform", `translate(0, ${44 + index * 56})`);
+
+                row.append("circle")
+                    .attr("cx", 20)
+                    .attr("cy", 0)
+                    .attr("r", radius(value))
+                    .attr("fill", "none")
+                    .attr("stroke", "#111111");
+
+                row.append("text")
+                    .attr("x", 58)
+                    .attr("y", 4)
+                    .attr("font-size", "12px")
+                    .text(value);
+            });
+
+            const colorLegend = svg.append("g")
+                .attr("transform", `translate(${width - 200}, 320)`);
+
+            colorLegend.append("text")
+                .attr("font-size", "13px")
+                .attr("font-weight", "bold")
+                .text("Circle color");
+
+            const colorRows = [
+                { label: "Top 10 most expensive states", fill: "#c2410c" },
+                { label: "All other states", fill: "#475569" }
+            ];
+
+            colorRows.forEach((item, index) => {
+                const row = colorLegend.append("g")
+                    .attr("transform", `translate(0, ${24 + index * 24})`);
+
+                row.append("circle")
+                    .attr("cx", 10)
+                    .attr("cy", 0)
+                    .attr("r", 7)
+                    .attr("fill", item.fill)
+                    .attr("stroke", "#111111");
+
+                row.append("text")
+                    .attr("x", 28)
+                    .attr("y", 4)
+                    .attr("font-size", "12px")
+                    .text(item.label);
+            });
+        });
+    </script>
+</body>
+</html>

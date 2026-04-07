@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sao Paulo Municipal Homicides in D3</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <h1>Sao Paulo Municipal Homicides, 2017-2022</h1>
+    <h3>Choropleth Map: municipalities in the Sao Paulo metro region of Brazil</h3>
+    <p>This A+ extension maps cumulative homicide incidents recorded between 2017 and 2022 across municipalities in the Sao Paulo metropolitan region. The map operates below the state level and includes an ordered legend plus tooltips for each municipality.</p>
+    <p>Source data: <a href="https://github.com/mpjashby/crimemappingdata">crimemappingdata municipality boundaries and Sao Paulo homicide records</a>.</p>
+    <svg id="chart" style="display:block;"></svg>
+    <div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
+
+    <script>
+        // References: D3 documentation https://d3js.org/ and the assignment instructions.
+        const width = 1280;
+        const height = 820;
+        const margin = { top: 20, right: 220, bottom: 20, left: 20 };
+        const thresholds = [1, 10, 25, 50, 100, 250, 1000];
+        const legendItems = [
+            { label: "0", value: 0 },
+            { label: "1-9", value: 1 },
+            { label: "10-24", value: 10 },
+            { label: "25-49", value: 25 },
+            { label: "50-99", value: 50 },
+            { label: "100-249", value: 100 },
+            { label: "250-999", value: 250 },
+            { label: "1000+", value: 1000 }
+        ];
+
+        const svg = d3.select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+        const tooltip = d3.select("#tooltip");
+
+        Promise.all([
+            d3.json("sao_paulo_municipalities.geojson"),
+            d3.csv("sao_paulo_municipal_homicides_2017_2022.csv", (d) => ({
+                municipalityCode: +d.municipality_code,
+                municipalityName: d.municipality_name,
+                municipalityKey: d.municipality_key,
+                homicideIncidents: +d.homicide_incidents
+            }))
+        ]).then(([geojson, rows]) => {
+            const projection = d3.geoMercator().fitSize(
+                [width - margin.left - margin.right, height - margin.top - margin.bottom],
+                geojson
+            );
+            const path = d3.geoPath(projection);
+            const dataByKey = new Map(rows.map((row) => [row.municipalityKey, row]));
+            const color = d3.scaleThreshold()
+                .domain(thresholds)
+                .range(d3.schemeReds[thresholds.length + 1]);
+
+            const chart = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            chart.selectAll(".municipality")
+                .data(geojson.features)
+                .enter()
+                .append("path")
+                .attr("class", "municipality")
+                .attr("d", path)
+                .attr("fill", (feature) => {
+                    const key = normalizeName(feature.properties.name_muni);
+                    const row = dataByKey.get(key);
+                    return color(row ? row.homicideIncidents : 0);
+                })
+                .attr("stroke", "#ffffff")
+                .attr("stroke-width", 0.8)
+                .on("mouseenter", function (event, feature) {
+                    const row = dataByKey.get(normalizeName(feature.properties.name_muni));
+                    const incidents = row ? row.homicideIncidents : 0;
+
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${feature.properties.name_muni}</strong><br/>Homicide incidents, 2017-2022: ${d3.format(",")(incidents)}`)
+                        .style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+
+                    d3.select(this)
+                        .attr("stroke", "#111111")
+                        .attr("stroke-width", 1.4);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseleave", function () {
+                    tooltip.style("opacity", 0);
+                    d3.select(this)
+                        .attr("stroke", "#ffffff")
+                        .attr("stroke-width", 0.8);
+                });
+
+            const legend = svg.append("g")
+                .attr("transform", `translate(${width - 170}, 120)`);
+
+            legend.append("text")
+                .attr("font-size", "13px")
+                .attr("font-weight", "bold")
+                .text("Incident count");
+
+            legendItems.forEach((item, index) => {
+                const row = legend.append("g")
+                    .attr("transform", `translate(0, ${26 + index * 24})`);
+
+                row.append("rect")
+                    .attr("width", 18)
+                    .attr("height", 18)
+                    .attr("fill", color(item.value))
+                    .attr("stroke", "#111111");
+
+                row.append("text")
+                    .attr("x", 28)
+                    .attr("y", 13)
+                    .attr("font-size", "12px")
+                    .text(item.label);
+            });
+        });
+
+        function normalizeName(value) {
+            return value
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase()
+                .trim()
+                .replace(/\s+/g, " ");
+        }
+    </script>
+</body>
+</html>

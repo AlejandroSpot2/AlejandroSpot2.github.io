@@ -1,0 +1,9 @@
+Prepared A9 data files:
+- us_county_poverty_2023.csv
+- state_cost_of_living_2025.csv
+- world_life_expectancy_2023.csv
+- sao_paulo_municipal_homicides_2017_2022.csv
+- us-counties-10m.json
+- us-states-10m.json
+- world-countries.geojson
+- sao_paulo_municipalities.geojson

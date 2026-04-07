@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>US County Poverty Choropleth in D3</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-svg-legend@2.25.6/d3-legend.min.js"></script>
+</head>
+<body>
+    <h1>United States County Poverty Rate, 2023</h1>
+    <h3>Choropleth Map: USDA county-level poverty estimates</h3>
+    <p>This choropleth uses the USDA Economic Research Service county-level poverty dataset. Hover any county to inspect the overall poverty rate, child poverty rate, and median household income.</p>
+    <p>Source data: <a href="https://www.ers.usda.gov/data-products/county-level-data-sets/county-level-data-sets-download-data">USDA ERS county-level data sets</a> and <a href="https://github.com/topojson/us-atlas">us-atlas county boundaries</a>.</p>
+    <svg id="chart" style="display:block;"></svg>
+    <div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
+
+    <script>
+        // References: D3 documentation https://d3js.org/, d3-legend https://d3-legend.susielu.com/, and the assignment instructions.
+        const width = 1280;
+        const height = 820;
+        const margin = { top: 24, right: 220, bottom: 24, left: 20 };
+        const excludedStateIds = new Set(["60", "66", "69", "72", "78"]);
+
+        const svg = d3.select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+        const tooltip = d3.select("#tooltip");
+
+        Promise.all([
+            d3.json("us-counties-10m.json"),
+            d3.csv("us_county_poverty_2023.csv", (d) => ({
+                fips: d.fips,
+                stateAbbr: d.state_abbr,
+                countyName: d.county_name,
+                povertyRate: +d.poverty_rate,
+                childPovertyRate: +d.child_poverty_rate,
+                medianHouseholdIncome: +d.median_household_income
+            }))
+        ]).then(([us, rows]) => {
+            const allStates = topojson.feature(us, us.objects.states);
+            const states = {
+                type: "FeatureCollection",
+                features: allStates.features.filter((feature) => !excludedStateIds.has(feature.id))
+            };
+            const counties = {
+                type: "FeatureCollection",
+                features: topojson.feature(us, us.objects.counties).features.filter((feature) => !excludedStateIds.has(feature.id.slice(0, 2)))
+            };
+            const projection = d3.geoAlbersUsa().fitSize(
+                [width - margin.left - margin.right, height - margin.top - margin.bottom],
+                states
+            );
+            const path = d3.geoPath(projection);
+            const povertyByFips = new Map(rows.map((row) => [row.fips, row]));
+            const extent = d3.extent(rows, (row) => row.povertyRate);
+
+            const color = d3.scaleSequential()
+                .domain(extent)
+                .interpolator(d3.interpolateYlOrRd);
+
+            const chart = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            chart.selectAll(".county")
+                .data(counties.features)
+                .enter()
+                .append("path")
+                .attr("class", "county")
+                .attr("d", path)
+                .attr("fill", (feature) => {
+                    const row = povertyByFips.get(feature.id);
+                    return row ? color(row.povertyRate) : "#e5e7eb";
+                })
+                .attr("stroke", "#ffffff")
+                .attr("stroke-width", 0.16)
+                .on("mouseenter", function (event, feature) {
+                    const row = povertyByFips.get(feature.id);
+                    if (!row) {
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>${feature.properties.name} County</strong><br/>No county-level value available`);
+                    } else {
+                        tooltip.style("opacity", 1)
+                            .html(
+                                `<strong>${row.countyName}</strong><br/>State: ${row.stateAbbr}<br/>Overall poverty rate: ${row.povertyRate.toFixed(1)}%<br/>Child poverty rate: ${row.childPovertyRate.toFixed(1)}%<br/>Median household income: ${d3.format("$,.0f")(row.medianHouseholdIncome)}`
+                            );
+                    }
+
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+
+                    d3.select(this)
+                        .attr("stroke", "#111111")
+                        .attr("stroke-width", 0.45);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseleave", function () {
+                    tooltip.style("opacity", 0);
+                    d3.select(this)
+                        .attr("stroke", "#ffffff")
+                        .attr("stroke-width", 0.16);
+                });
+
+            chart.append("path")
+                .datum(topojson.mesh(us, us.objects.states, (a, b) => a !== b && !excludedStateIds.has(a.id) && !excludedStateIds.has(b.id)))
+                .attr("fill", "none")
+                .attr("stroke", "#3f3f46")
+                .attr("stroke-width", 0.55)
+                .attr("d", path);
+
+            const legend = d3.legendColor()
+                .scale(color)
+                .title("Poverty rate (%)")
+                .shapeWidth(44)
+                .cells(7)
+                .orient("vertical")
+                .labelFormat(d3.format(".0f"));
+
+            svg.append("g")
+                .attr("transform", `translate(${width - 160}, 100)`)
+                .call(legend);
+        });
+    </script>
+</body>
+</html>

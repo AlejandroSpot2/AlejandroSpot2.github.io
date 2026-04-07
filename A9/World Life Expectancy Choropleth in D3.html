@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>World Life Expectancy Choropleth in D3</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-svg-legend@2.25.6/d3-legend.min.js"></script>
+</head>
+<body>
+    <h1>World Life Expectancy at Birth, 2023</h1>
+    <h3>Choropleth Map: World Bank country estimates</h3>
+    <p>This world choropleth maps life expectancy at birth from the World Bank indicator SP.DYN.LE00.IN. Hover any country to inspect the 2023 value. Countries without a 2023 observation are shown in gray.</p>
+    <p>Source data: <a href="https://api.worldbank.org/v2/country/all/indicator/SP.DYN.LE00.IN?format=json&per_page=20000">World Bank indicator API</a> and <a href="https://www.naturalearthdata.com/">Natural Earth country boundaries</a>.</p>
+    <svg id="chart" style="display:block;"></svg>
+    <div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
+
+    <script>
+        // References: D3 documentation https://d3js.org/, d3-legend https://d3-legend.susielu.com/, and the assignment instructions.
+        const width = 1320;
+        const height = 820;
+        const margin = { top: 20, right: 220, bottom: 20, left: 20 };
+
+        const svg = d3.select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+        const tooltip = d3.select("#tooltip");
+
+        Promise.all([
+            d3.json("world-countries.geojson"),
+            d3.csv("world_life_expectancy_2023.csv", (d) => ({
+                iso3: d.iso3,
+                countryName: d.country_name,
+                lifeExpectancy: +d.life_expectancy
+            }))
+        ]).then(([world, rows]) => {
+            const countries = {
+                type: "FeatureCollection",
+                features: world.features.filter((feature) => feature.properties.NAME_EN !== "Antarctica")
+            };
+
+            const projection = d3.geoNaturalEarth1().fitSize(
+                [width - margin.left - margin.right, height - margin.top - margin.bottom],
+                countries
+            );
+            const path = d3.geoPath(projection);
+            const dataByIso3 = new Map(rows.map((row) => [row.iso3, row]));
+            const extent = d3.extent(rows, (row) => row.lifeExpectancy);
+            const color = d3.scaleSequential()
+                .domain(extent)
+                .interpolator(d3.interpolateBuGn);
+
+            const chart = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            chart.append("path")
+                .datum({ type: "Sphere" })
+                .attr("d", path)
+                .attr("fill", "#f8fafc")
+                .attr("stroke", "#94a3b8")
+                .attr("stroke-width", 0.7)
+                .attr("pointer-events", "none");
+
+            chart.selectAll(".country")
+                .data(countries.features)
+                .enter()
+                .append("path")
+                .attr("class", "country")
+                .attr("d", path)
+                .attr("fill", (feature) => {
+                    const row = dataByIso3.get(feature.properties.ISO_A3);
+                    return row ? color(row.lifeExpectancy) : "#e5e7eb";
+                })
+                .attr("stroke", "#ffffff")
+                .attr("stroke-width", 0.45)
+                .on("mouseenter", function (event, feature) {
+                    const row = dataByIso3.get(feature.properties.ISO_A3);
+
+                    if (!row) {
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>${feature.properties.NAME_EN}</strong><br/>No 2023 World Bank value available`);
+                    } else {
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>${feature.properties.NAME_EN}</strong><br/>Life expectancy at birth: ${row.lifeExpectancy.toFixed(1)} years`);
+                    }
+
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+
+                    d3.select(this)
+                        .attr("stroke", "#111111")
+                        .attr("stroke-width", 0.8);
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", `${event.pageX + 10}px`)
+                        .style("top", `${event.pageY + 10}px`);
+                })
+                .on("mouseleave", function () {
+                    tooltip.style("opacity", 0);
+                    d3.select(this)
+                        .attr("stroke", "#ffffff")
+                        .attr("stroke-width", 0.45);
+                });
+
+            const legend = d3.legendColor()
+                .scale(color)
+                .title("Life expectancy (years)")
+                .shapeWidth(44)
+                .cells(7)
+                .orient("vertical")
+                .labelFormat(d3.format(".0f"));
+
+            svg.append("g")
+                .attr("transform", `translate(${width - 160}, 100)`)
+                .call(legend);
+        });
+    </script>
+</body>
+</html>
