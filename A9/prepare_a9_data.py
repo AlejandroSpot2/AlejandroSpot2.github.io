@@ -11,8 +11,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent
 
 URLS = {
-    "usda_poverty": "https://www.ers.usda.gov/media/5496/poverty-estimates-for-the-united-states-states-and-counties-2023.csv?v=51650",
-    "meric_cost_of_living": "https://meric.mo.gov/data/cost-living-data-series",
+    "usda_poverty_xlsx": "https://www.ers.usda.gov/media/5493/poverty-estimates-for-the-united-states-states-and-counties-2023.xlsx?v=47412",
+    "expensive_states_csv": "https://gist.githubusercontent.com/ncavestany/c969f0d757d679e578af04c55ea014df/raw/82a59ba001fd1a5b44af03abc50abd8084ea068d/expensive-states.csv",
     "state_centroids": "https://developers.google.com/public-data/docs/canonical/states_csv",
     "us_counties_topojson": "https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json",
     "us_states_topojson": "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json",
@@ -43,20 +43,21 @@ def write_text_file(filename: str, contents: str) -> None:
 
 
 def build_us_county_poverty_csv() -> None:
-    df = pd.read_csv(URLS["usda_poverty"], dtype={"FIPS_Code": str})
+    workbook_bytes = fetch_bytes(URLS["usda_poverty_xlsx"])
+    (ROOT / "poverty-estimates-for-the-united-states-states-and-counties-2023.xlsx").write_bytes(workbook_bytes)
+
+    df = pd.read_excel(
+        ROOT / "poverty-estimates-for-the-united-states-states-and-counties-2023.xlsx",
+        sheet_name="Poverty Data 2023",
+        header=4,
+        dtype={"FIPS_Code": str},
+    )
     df["FIPS_Code"] = df["FIPS_Code"].fillna("").astype(str).str.zfill(5)
 
     county_rows = df[df["FIPS_Code"].str.len() == 5].copy()
-    wide = county_rows.pivot_table(
-        index=["FIPS_Code", "Stabr", "Area_Name"],
-        columns="Attribute",
-        values="Value",
-        aggfunc="first",
-    ).reset_index()
-
-    counties = wide[
-        (wide["FIPS_Code"] != "00000")
-        & (~wide["FIPS_Code"].str.endswith("000"))
+    counties = county_rows[
+        (county_rows["FIPS_Code"] != "00000")
+        & (~county_rows["FIPS_Code"].str.endswith("000"))
     ].copy()
 
     output = counties.rename(
@@ -83,20 +84,24 @@ def build_us_county_poverty_csv() -> None:
 
 
 def build_state_cost_of_living_csv() -> None:
-    cost_table = pd.read_html(URLS["meric_cost_of_living"])[0]
+    cost_table = pd.read_csv(URLS["expensive_states_csv"])
+    cost_table.to_csv(ROOT / "expensive-states.csv", index=False)
+
     centroids = pd.read_html(URLS["state_centroids"])[0]
+    centroids.to_csv(ROOT / "state-centroids.csv", index=False)
 
     cost_table = cost_table.rename(
         columns={
-            "Rank": "cost_rank",
+            "costRank": "cost_rank",
             "State": "state_name",
-            "Index": "cost_index",
-            "Grocery": "grocery_cost",
-            "Housing": "housing_cost",
-            "Utilities": "utilities_cost",
-            "Transportation": "transportation_cost",
-            "Health": "health_cost",
-            "Misc.": "misc_cost",
+            "costIndex": "cost_index",
+            "groceryCost": "grocery_cost",
+            "housingCost": "housing_cost",
+            "utilitiesCost": "utilities_cost",
+            "transportationCost": "transportation_cost",
+            "miscCost": "misc_cost",
+            "Latitude": "source_latitude",
+            "Longitude": "source_longitude",
         }
     )
 
@@ -106,10 +111,6 @@ def build_state_cost_of_living_csv() -> None:
             "name": "state_name",
         }
     )
-
-    cost_table = cost_table[
-        ~cost_table["state_name"].isin(["United States", "Puerto Rico"])
-    ].copy()
 
     merged = cost_table.merge(
         centroids[["state_abbr", "state_name", "latitude", "longitude"]],
@@ -131,7 +132,6 @@ def build_state_cost_of_living_csv() -> None:
             "housing_cost",
             "utilities_cost",
             "transportation_cost",
-            "health_cost",
             "misc_cost",
             "latitude",
             "longitude",
@@ -139,7 +139,7 @@ def build_state_cost_of_living_csv() -> None:
         ]
     ].sort_values("expensive_rank")
 
-    output.to_csv(ROOT / "state_cost_of_living_2025.csv", index=False)
+    output.to_csv(ROOT / "expensive-states-centroids.csv", index=False)
 
 
 def build_world_life_expectancy_csv(world_geojson: dict) -> None:
@@ -233,7 +233,10 @@ def main() -> None:
     summary = [
         "Prepared A9 data files:",
         "- us_county_poverty_2023.csv",
-        "- state_cost_of_living_2025.csv",
+        "- poverty-estimates-for-the-united-states-states-and-counties-2023.xlsx",
+        "- expensive-states.csv",
+        "- state-centroids.csv",
+        "- expensive-states-centroids.csv",
         "- world_life_expectancy_2023.csv",
         "- sao_paulo_municipal_homicides_2017_2022.csv",
         "- us-counties-10m.json",

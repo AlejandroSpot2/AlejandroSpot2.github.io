@@ -9,8 +9,8 @@
 <body>
     <h1>United States Cost of Living, 2025</h1>
     <h3>Proportional Symbols Map: housing cost index by state centroid</h3>
-    <p>The symbol size encodes the housing cost index from the MERIC annual cost of living table. The top 10 most expensive states by overall composite cost index are highlighted in a different color and include tooltips.</p>
-    <p>Source data: <a href="https://meric.mo.gov/data/cost-living-data-series">MERIC cost of living data series</a>, <a href="https://developers.google.com/public-data/docs/canonical/states_csv">Google state centroid coordinates</a>, and <a href="https://github.com/topojson/us-atlas">us-atlas state boundaries</a>.</p>
+    <p>The symbol size encodes the housing cost index from the expensive-states CSV, and the map positions come from a separate state-centroid table that was joined during data preparation. The top 10 most expensive states by overall composite cost index are highlighted in a different color and include tooltips.</p>
+    <p>Source data: <a href="https://gist.github.com/ncavestany/c969f0d757d679e578af04c55ea014df">expensive-states.csv</a>, <a href="https://developers.google.com/public-data/docs/canonical/states_csv">state centroid coordinates</a>, and <a href="https://github.com/topojson/us-atlas">us-atlas state boundaries</a>.</p>
     <svg id="chart" style="display:block;"></svg>
     <div id="tooltip" style="position:absolute;pointer-events:none;background:#111;color:#fff;padding:6px 8px;border-radius:4px;opacity:0;font-size:12px;"></div>
 
@@ -29,7 +29,7 @@
 
         Promise.all([
             d3.json("us-states-10m.json"),
-            d3.csv("state_cost_of_living_2025.csv", (d) => ({
+            d3.csv("expensive-states-centroids.csv", (d) => ({
                 costRank: +d.cost_rank,
                 expensiveRank: +d.expensive_rank,
                 stateName: d.state_name,
@@ -39,7 +39,6 @@
                 housingCost: +d.housing_cost,
                 utilitiesCost: +d.utilities_cost,
                 transportationCost: +d.transportation_cost,
-                healthCost: +d.health_cost,
                 miscCost: +d.misc_cost,
                 latitude: +d.latitude,
                 longitude: +d.longitude,
@@ -91,7 +90,7 @@
 
                     tooltip.style("opacity", 1)
                         .html(
-                            `<strong>${row.stateName}</strong><br/>Composite cost index: ${row.costIndex.toFixed(1)}<br/>Housing cost index: ${row.housingCost.toFixed(1)}<br/>Grocery cost index: ${row.groceryCost.toFixed(1)}<br/>Utilities cost index: ${row.utilitiesCost.toFixed(1)}<br/>Transportation cost index: ${row.transportationCost.toFixed(1)}<br/>Most expensive rank: #${row.expensiveRank}`
+                            `<strong>${row.stateName}</strong><br/>Composite cost index: ${row.costIndex.toFixed(1)}<br/>Housing cost index: ${row.housingCost.toFixed(1)}<br/>Grocery cost index: ${row.groceryCost.toFixed(1)}<br/>Utilities cost index: ${row.utilitiesCost.toFixed(1)}<br/>Transportation cost index: ${row.transportationCost.toFixed(1)}<br/>Miscellaneous cost index: ${row.miscCost.toFixed(1)}<br/>Most expensive rank: #${row.expensiveRank}`
                         )
                         .style("left", `${event.pageX + 10}px`)
                         .style("top", `${event.pageY + 10}px`);
